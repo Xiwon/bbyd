@@ -140,7 +140,7 @@ func registerRoutes(e *echo.Echo) {
 		token_usr := get_token_usr(c)
 
 		if token_usr == "" {
-			res := &msg_json{ Msg: "(/logout)[failed] logout failed, you didn't login" }
+			res := &msg_json{ Msg: "(/logout)[failed] you didn't login" }
 			return c.JSONPretty(http.StatusBadRequest, res, "  ")
 		} else {
 			cookie := &http.Cookie{
@@ -173,6 +173,11 @@ func registerRoutes(e *echo.Echo) {
 			if req.Name == "" {
 				return c.JSONPretty(http.StatusBadRequest, &msg_json{
 					Msg: "(/setauth)[failed] empty target user",
+				}, "  ")
+			}
+			if req.Name == "root" {
+				return c.JSONPretty(http.StatusBadRequest, &msg_json{
+					Msg: "(/setauth)[failed] CANNOT change root Auth",
 				}, "  ")
 			}
 			if req.To == "" {
