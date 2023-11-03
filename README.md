@@ -168,7 +168,9 @@ uid 为 1 的用户为 root，root 每次启动后端时都会被再次写入 `a
 - `name` 被修改的用户名。如果不存在响应 `empty target user`
 - `to` 权限字段被修改为的值。不能为空
 
-只有具有 `admin` 权限的用户可以修改别人的 Auth，如果 Auth 字段不为 `admin` 则响应 `you are not an admin`。
+只有具有 `admin` 权限的用户可以修改别人的 Auth，如果 Auth 字段不为 `admin` 则响应 `you are not an admin`
+
+**任何人不能修改 root 的权限**
 
 未登录访问则报错
 
@@ -219,6 +221,13 @@ curl -b ck.cookie -c ck.cookie -X GET \
 **任何用户都不能删除 root**
 
 普通用户可以注销自己
+
+示例命令：
+
+```
+curl -b ck.cookie -c ck.cookie -X GET \
+  'localhost:11451/delete?name=xiwon'
+```
 
 
 
