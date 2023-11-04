@@ -14,10 +14,7 @@ import(
 func TokenVerify(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		r := resp.New(c, "TokenVerify")
-		raw, err := c.Cookie("token")
-		if err != nil {
-			return err
-		}
+		raw, _ := c.Cookie("token")
 		if raw.Value == "" {
 			return r.Re(mark.BadRqst, "not login", nil)
 		}
