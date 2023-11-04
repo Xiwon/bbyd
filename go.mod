@@ -5,6 +5,7 @@ go 1.21.3
 require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/labstack/echo/v4 v4.11.2
+	go.uber.org/zap v1.26.0
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/gorm v1.25.5
 )
@@ -21,6 +22,7 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect

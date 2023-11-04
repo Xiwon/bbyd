@@ -1,25 +1,30 @@
 package main
 
 import(
-	// "fmt"
-	// "gorm.io/driver/postgres"
-	// "gorm.io/gorm"
-
-	"github.com/labstack/echo/v4"
-	"bbyd/db"
-	"bbyd/jwt"
-	"github.com/labstack/echo/v4/middleware"
+	"bbyd/model"
+	"bbyd/shared/config"
+	"bbyd/controllers/auth"
+	"bbyd/controllers/server"
 )
 
 func main() {
-	db.DatabaseStart() //  database connect
+	conf, err := config.Create()
+	if err != nil {
+		panic(err)
+	}
 
-	e := echo.New()
+	err = model.Init(conf.Db)
+	if err != nil {
+		panic(err)
+	}
 
-	e.Use(middleware.Logger())
-	e.Use(jwt.AutoLogin) //  middleware - jwt
+	err = auth.Init(conf.Au)
+	if err != nil {
+		panic(err)
+	}
 
-	registerRoutes(e)
-
-	e.Logger.Fatal(e.Start(":11451"))
+	err = server.Run(conf.Se)
+	if err != nil {
+		panic(err)
+	}
 }
