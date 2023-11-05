@@ -28,13 +28,20 @@ func Run(s config.Server) error {
 func routes(e *echo.Echo) {
 	e.Use(echomw.Logger())
 
-	e.GET("/user", contro.UserGET, mdware.TokenVerify)
-	
-	e.GET("/login", contro.LoginPOST)
-	e.GET("/register", contro.RegisterPOST)
-	e.POST("/logout", contro.LogoutPOST, mdware.TokenVerify)
+	api := e.Group("/api/v1")
+	{
+		user := api.Group("/user")
+		{
+			user.GET("", contro.UserGET, mdware.TokenVerify)
+			user.GET("/", contro.UserGET, mdware.TokenVerify)
+			
+			user.POST("/login", contro.LoginPOST)
+			user.POST("/register", contro.RegisterPOST)
+			user.POST("/logout", contro.LogoutPOST, mdware.TokenVerify)
 
-	e.GET("/setauth", contro.SetauthPOST, mdware.TokenVerify)
-	e.GET("/setinfo", contro.SetinfoPOST, mdware.TokenVerify)
-	e.POST("/delete", contro.DeletePOST, mdware.TokenVerify)
+			user.POST("/setauth", contro.SetauthPOST, mdware.TokenVerify)
+			user.POST("/setinfo", contro.SetinfoPOST, mdware.TokenVerify)
+			user.POST("/delete", contro.DeletePOST, mdware.TokenVerify)
+		}
+	}
 }
