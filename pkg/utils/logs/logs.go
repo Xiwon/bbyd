@@ -5,43 +5,35 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type LogLevel int
-
 const (
-	ERROR LogLevel = 0
-	WARN  LogLevel = 1
-	INFO  LogLevel = 2
-	DEBUG LogLevel = 3
+	Development = 0
+	Production
 )
 
-const logLevel LogLevel = DEBUG
-
+const loggerType = Development
 var logger *zap.Logger
 
+func createDevelopment() *zap.Logger {
+	config := zap.NewDevelopmentConfig()
+	config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+    return zap.Must(config.Build())
+}
+
 func init() {
-	logger, _ = zap.NewDevelopment()
+	if loggerType == Development {
+		logger = createDevelopment()
+	}
 }
 
 func Debug(msg string, fields ...zapcore.Field) {
-	if logLevel >= DEBUG {
-		logger.Debug(msg, fields...)
-	}
+	logger.Debug(msg, fields...)
 }
-
 func Info(msg string, fields ...zapcore.Field) {
-	if logLevel >= INFO {
-		logger.Info(msg, fields...)
-	}
+	logger.Info(msg, fields...)
 }
-
 func Warn(msg string, fields ...zapcore.Field) {
-	if logLevel >= WARN {
-		logger.Warn(msg, fields...)
-	}
+	logger.Warn(msg, fields...)
 }
-
 func Error(msg string, fields ...zapcore.Field) {
-	if logLevel >= ERROR {
-		logger.Error(msg, fields...)
-	}
+	logger.Error(msg, fields...)
 }

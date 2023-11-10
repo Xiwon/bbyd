@@ -29,11 +29,11 @@ func AutoMigrate(d config.Database) {
 	if d.PreRegisterRoot {
 		err := TryRegister("root", "123456", "")
 		if err != nil {
-			logs.Error("root register failed", zap.Error(err))
+			logs.Warn("root register failed", zap.Error(err))
 		}
 		err  = TryChangeAuth("root", "admin")
 		if err != nil {
-			logs.Error("root auth change failed", zap.Error(err))
+			logs.Warn("root auth change failed", zap.Error(err))
 		}
 	}
 
