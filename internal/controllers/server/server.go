@@ -28,7 +28,7 @@ func Run(s config.Server) error {
 func routes(e *echo.Echo) {
 	e.Use(echomw.Logger())
 
-	api := e.Group("/api/v1")
+	api := e.Group("/api/v1", mdware.UseResponseContext)
 	{
 		user := api.Group("/user")
 		{
