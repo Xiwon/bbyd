@@ -1,9 +1,10 @@
 package middleware
 
 import(
+	"net/http"
+	
 	"bbyd/internal/model"
 	"bbyd/internal/controllers/auth"
-	"bbyd/pkg/utils/mark"
 	contro "bbyd/internal/controllers"
 	resp "bbyd/pkg/utils/response"
 	
@@ -16,10 +17,10 @@ func TokenVerify(next echo.HandlerFunc) echo.HandlerFunc {
 		c := cc.(*resp.ResponseContext)
 		raw, err := c.Cookie("token")
 		if err != nil {
-			return c.BYResponse(mark.BadRqst, "cookie not found", nil)
+			return c.BYResponse(http.StatusBadRequest, "cookie not found", nil)
 		}
 		if raw.Value == "" {
-			return c.BYResponse(mark.BadRqst, "not login", nil)
+			return c.BYResponse(http.StatusBadRequest, "not login", nil)
 		}
 
 		token, err := jwt.ParseWithClaims(string(raw.Value), 
@@ -27,13 +28,13 @@ func TokenVerify(next echo.HandlerFunc) echo.HandlerFunc {
 			return auth.GetSkey(), nil
 		})
 		if err != nil {
-			return c.BYResponse(mark.BadRqst, "expired token", nil)
+			return c.BYResponse(http.StatusBadRequest, "expired token", nil)
 		}
 
 		name := string(token.Claims.(*auth.TokenClaims).Username)
 		usr, err := model.GetUsrByName(name) // get raw data from database
 		if err != nil {
-			return c.BYResponse(mark.BadRqst, "no such user", nil)
+			return c.BYResponse(http.StatusBadRequest, "no such user", nil)
 		}
 		c.Set("token_usr", &contro.UserProfile{
 			Uid: usr.ID,

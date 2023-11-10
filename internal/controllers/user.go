@@ -5,7 +5,6 @@ import(
 	"time"
 	"net/http"
 
-	"bbyd/pkg/utils/mark"
 	"bbyd/internal/model"
 	"bbyd/internal/controllers/auth"
 	resp "bbyd/pkg/utils/response"
@@ -51,7 +50,7 @@ func GetProfile(c echo.Context) UserProfile {
 func UserGET(cc echo.Context) error {
 	c := cc.(*resp.ResponseContext)
 	usr := GetProfile(c)
-	return c.BYResponse(mark.OK, "Welcome! Have a nice day", usr)
+	return c.BYResponse(http.StatusOK, "Welcome! Have a nice day", usr)
 }
 
 func LoginPOST(cc echo.Context) error {
@@ -66,7 +65,7 @@ func LoginPOST(cc echo.Context) error {
 	{	// password verify
 		db_sec, err := model.GetSecretByName(req.Name)
 		if err != nil {
-			return c.BYResponse(mark.BadRqst, "user not found", nil)
+			return c.BYResponse(http.StatusBadRequest, "user not found", nil)
 		}
 		salt := auth.GetSaltFromSecret(db_sec)
 		sec := auth.GenerateSecret(req.Passwd, salt)
@@ -76,7 +75,7 @@ func LoginPOST(cc echo.Context) error {
 		}
 	}
 	if !legal {
-		return c.BYResponse(mark.BadRqst, "wrong password", nil)
+		return c.BYResponse(http.StatusBadRequest, "wrong password", nil)
 	}
 
 	cookie := &http.Cookie{
@@ -85,7 +84,7 @@ func LoginPOST(cc echo.Context) error {
 		HttpOnly: true,
 	}
 	c.SetCookie(cookie)
-	return c.BYResponse(mark.OK, "login user " + req.Name, nil)
+	return c.BYResponse(http.StatusOK, "login user " + req.Name, nil)
 }
 
 func RegisterPOST(cc echo.Context) error {
@@ -97,20 +96,20 @@ func RegisterPOST(cc echo.Context) error {
 	}
 
 	if req.Name == "" {
-		return c.BYResponse(mark.BadRqst, "empty username is not allowed", nil)
+		return c.BYResponse(http.StatusBadRequest, "empty username is not allowed", nil)
 	}
 	if req.Passwd == "" {
-		return c.BYResponse(mark.BadRqst, "empty password is not allowed", nil)
+		return c.BYResponse(http.StatusBadRequest, "empty password is not allowed", nil)
 	}
 	if req.Passwd != req.Repeat {
-		return c.BYResponse(mark.BadRqst, "repeat password differs from the first input", nil)
+		return c.BYResponse(http.StatusBadRequest, "repeat password differs from the first input", nil)
 	}
 
 	err = model.TryRegister(req.Name, req.Passwd, req.Email)
 	if err != nil {
-		return c.BYResponse(mark.BadRqst, "existing name", nil)
+		return c.BYResponse(http.StatusBadRequest, "existing name", nil)
 	}
-	return c.BYResponse(mark.OK, "successfully registered", nil)
+	return c.BYResponse(http.StatusOK, "successfully registered", nil)
 }
 
 // assume user has been verified
@@ -125,7 +124,7 @@ func LogoutPOST(cc echo.Context) error {
 	}
 	c.SetCookie(cookie)
 
-	return c.BYResponse(mark.OK, "logout from user " + usr.Username, nil)
+	return c.BYResponse(http.StatusOK, "logout from user " + usr.Username, nil)
 }
 
 // assume user has been verified
@@ -138,17 +137,17 @@ func SetauthPOST(cc echo.Context) error {
 	}
 	usr := GetProfile(c)
 	if usr.Auth != "admin" {
-		return c.BYResponse(mark.BadRqst, "you are not an admin", nil)
+		return c.BYResponse(http.StatusBadRequest, "you are not an admin", nil)
 	}
 	if req.Name == "root" {
-		return c.BYResponse(mark.BadRqst, "CANNOT change root auth", nil)
+		return c.BYResponse(http.StatusBadRequest, "CANNOT change root auth", nil)
 	}
 
 	err = model.TryChangeAuth(req.Name, req.To)
 	if err != nil {
-		return c.BYResponse(mark.BadRqst, "user " + req.Name + " not found", nil)
+		return c.BYResponse(http.StatusBadRequest, "user " + req.Name + " not found", nil)
 	}
-	return c.BYResponse(mark.OK, "you've changed user " + req.Name + "'s Auth to " + req.To, nil)
+	return c.BYResponse(http.StatusOK, "you've changed user " + req.Name + "'s Auth to " + req.To, nil)
 }
 
 // assume user has been verified
@@ -161,17 +160,17 @@ func SetinfoPOST(cc echo.Context) error {
 	}
 	usr := GetProfile(c)
 	if usr.Auth != "admin" && usr.Username != req.Name {
-		return c.BYResponse(mark.BadRqst, "you are not an admin", nil)
+		return c.BYResponse(http.StatusBadRequest, "you are not an admin", nil)
 	}
 	if req.Name == "root" && usr.Username != "root" {
-		return c.BYResponse(mark.BadRqst, "NOBODY can change root info except root", nil)
+		return c.BYResponse(http.StatusBadRequest, "NOBODY can change root info except root", nil)
 	}
 
 	msg, err := model.TryChangeInfo(req.Name, req.Passwd, req.Email)
 	if err != nil {
-		return c.BYResponse(mark.BadRqst, msg, nil)
+		return c.BYResponse(http.StatusBadRequest, msg, nil)
 	}
-	return c.BYResponse(mark.OK, msg, nil)
+	return c.BYResponse(http.StatusOK, msg, nil)
 }
 
 // assume user has been verified
@@ -185,15 +184,15 @@ func DeletePOST(cc echo.Context) error {
 
 	usr := GetProfile(c)
 	if usr.Auth != "admin" && usr.Username != req.Name {
-		return c.BYResponse(mark.BadRqst, "you are not an admin", nil)
+		return c.BYResponse(http.StatusBadRequest, "you are not an admin", nil)
 	}
 	if req.Name == "root" {
-		return c.BYResponse(mark.BadRqst, "CANNOT delete root", nil)
+		return c.BYResponse(http.StatusBadRequest, "CANNOT delete root", nil)
 	}
 
 	msg, err := model.TryDelete(req.Name)
 	if err != nil {
-		return c.BYResponse(mark.BadRqst, msg, nil)
+		return c.BYResponse(http.StatusBadRequest, msg, nil)
 	}
-	return c.BYResponse(mark.OK, msg, nil)
+	return c.BYResponse(http.StatusOK, msg, nil)
 }
