@@ -1,8 +1,8 @@
 package model
 
-import(
-	"fmt"
+import (
 	"errors"
+	"fmt"
 
 	"bbyd/internal/controllers/auth"
 	"gorm.io/gorm"
@@ -13,9 +13,9 @@ var db *gorm.DB
 type UserModel struct {
 	gorm.Model
 	Username string
-	Secret string
-	Email string
-	Auth string
+	Secret   string
+	Email    string
+	Auth     string
 }
 
 func AutoMigrate() {
@@ -59,9 +59,9 @@ func TryRegister(name string, passwd string, email string) error {
 	}
 	user = UserModel{
 		Username: name,
-		Secret: auth.GenerateSecret(passwd, auth.GenerateSalt()),
-		Email: email,
-		Auth: "normal",
+		Secret:   auth.GenerateSecret(passwd, auth.GenerateSalt()),
+		Email:    email,
+		Auth:     "normal",
 	}
 	db.Create(&user)
 	return nil
@@ -90,7 +90,7 @@ func TryChangeInfo(name string, passwd string, email string) (string, error) {
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
 	if result.RowsAffected == 0 {
-		return "user " + name + " not found", 
+		return "user " + name + " not found",
 			errors.New("user not found")
 	}
 
@@ -117,7 +117,7 @@ func TryDelete(name string) (string, error) {
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
 	if result.RowsAffected == 0 {
-		return "user " + name + " not found", 
+		return "user " + name + " not found",
 			errors.New("user not found")
 	}
 	db.Delete(&user)
