@@ -4,15 +4,15 @@ import(
 	"github.com/labstack/echo/v4"
 )
 
-type ResponseContext struct {
-	echo.Context
-}
-
 type MsgResponse struct {
 	Code int
 	Status string
 	Message string
 	Data interface{}
+}
+
+type ResponseContext struct {
+	echo.Context
 }
 
 func (r *ResponseContext) BYResponse(
