@@ -43,12 +43,7 @@ type deleteRqst struct {
 // & set `token_usr` to a controllers.UserProfile object
 func GetProfile(c echo.Context) UserProfile {
 	usr := c.Get("token_usr")
-	return UserProfile{
-		Uid: usr.(*UserProfile).Uid,
-		Username: usr.(*UserProfile).Username,
-		Email: usr.(*UserProfile).Email,
-		Auth: usr.(*UserProfile).Auth,
-	}
+	return *usr.(*UserProfile)
 }
 
 // assume user has been verified

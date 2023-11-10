@@ -21,8 +21,9 @@ type UserModel struct {
 func AutoMigrate() {
 	db.AutoMigrate(&UserModel{})
 
-	TryRegister("root", "123456", "")
-	TryChangeAuth("root", "admin")
+	// pre-register root admin
+	MustRegister("root", "123456", "")
+	MustChangeAuth("root", "admin")
 
 	var usrdatas []UserModel
 	db.Find(&usrdatas)
@@ -65,6 +66,9 @@ func TryRegister(name string, passwd string, email string) error {
 	db.Create(&user)
 	return nil
 }
+func MustRegister(name string, passwd string, email string) {
+	TryRegister(name, passwd, email)
+}
 
 // err = TryChangeAuth(req.Name, req.To)
 func TryChangeAuth(name string, auth string) error {
@@ -76,6 +80,9 @@ func TryChangeAuth(name string, auth string) error {
 	user.Auth = auth
 	db.Save(&user)
 	return nil
+}
+func MustChangeAuth(name string, auth string) {
+	TryChangeAuth(name, auth)
 }
 
 // msg, err := TryChangeInfo(req.Name, req.Passwd, req.Email)
