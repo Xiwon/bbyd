@@ -5,39 +5,42 @@ type Server struct {
 	Port int
 }
 type Database struct {
-	Host string
-	Port int
-	User string
-	Password string
-	DbName string
-	SslMode bool 
+	Host            string
+	Port            int
+	User            string
+	Password        string
+	DbName          string
+	SslMode         bool
+	PreRegisterRoot bool
 }
 type Authorization struct {
 	Skey string
 }
 
 type Config struct {
-	Se Server
-	Db Database
-	Au Authorization
+	Server        Server
+	Database      Database
+	Authorization Authorization
 }
 
 func Create() (c Config, e error) {
-	c.Se = Server{
-		"localhost",
-		11451,
+	c.Server = Server{
+		Host: "localhost",
+		Port: 11451,
 	}
-	c.Db = Database{
-		"localhost",
-		5432,
-		"postgres",
-		"",
-		"byddb",
-		false,
+	c.Database = Database{
+		Host:     "localhost",
+		Port:     5432,
+		User:     "postgres",
+		Password: "",
+		DbName:   "byddb",
+		SslMode:  false,
+
+		PreRegisterRoot: true,
 	}
-	c.Au = Authorization{
-		"bbingyan_jwt_skey_58490998",
+	c.Authorization = Authorization{
+		Skey: "bbingyan_jwt_skey_58490998",
 	}
-	
+
 	return
 }

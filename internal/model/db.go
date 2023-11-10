@@ -4,7 +4,11 @@ import (
 	"errors"
 	"fmt"
 
+	"bbyd/internal/shared/config"
 	"bbyd/internal/controllers/auth"
+	"bbyd/pkg/utils/logs"
+
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -18,12 +22,20 @@ type UserModel struct {
 	Auth     string
 }
 
-func AutoMigrate() {
+func AutoMigrate(d config.Database) {
 	db.AutoMigrate(&UserModel{})
 
 	// pre-register root admin
-	MustRegister("root", "123456", "")
-	MustChangeAuth("root", "admin")
+	if d.PreRegisterRoot {
+		err := TryRegister("root", "123456", "")
+		if err != nil {
+			logs.Error("root register failed", zap.Error(err))
+		}
+		err  = TryChangeAuth("root", "admin")
+		if err != nil {
+			logs.Error("root auth change failed", zap.Error(err))
+		}
+	}
 
 	var usrdatas []UserModel
 	db.Find(&usrdatas)
@@ -66,9 +78,6 @@ func TryRegister(name string, passwd string, email string) error {
 	db.Create(&user)
 	return nil
 }
-func MustRegister(name string, passwd string, email string) {
-	TryRegister(name, passwd, email)
-}
 
 // err = TryChangeAuth(req.Name, req.To)
 func TryChangeAuth(name string, auth string) error {
@@ -80,9 +89,6 @@ func TryChangeAuth(name string, auth string) error {
 	user.Auth = auth
 	db.Save(&user)
 	return nil
-}
-func MustChangeAuth(name string, auth string) {
-	TryChangeAuth(name, auth)
 }
 
 // msg, err := TryChangeInfo(req.Name, req.Passwd, req.Email)

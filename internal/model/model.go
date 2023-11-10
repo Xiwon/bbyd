@@ -30,6 +30,6 @@ func Init(d config.Database) error {
 		return err
 	}
 
-	AutoMigrate()
+	AutoMigrate(d)
 	return nil
 }
