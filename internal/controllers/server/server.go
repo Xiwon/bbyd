@@ -1,16 +1,16 @@
 package server
 
-import(
+import (
 	"strconv"
 
-	"bbyd/pkg/utils/logs"
-	"bbyd/internal/shared/config"
 	contro "bbyd/internal/controllers"
 	mdware "bbyd/internal/controllers/middleware"
+	"bbyd/internal/shared/config"
+	"bbyd/pkg/utils/logs"
 
-	"go.uber.org/zap"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
+	"go.uber.org/zap"
 )
 
 func Run(s config.Server) error {
@@ -19,7 +19,7 @@ func Run(s config.Server) error {
 	adr := ":" + strconv.Itoa(s.Port)
 	err := e.Start(adr)
 	if err != nil {
-		logs.Error("server start failed at " + adr + ". ", zap.Error(err))
+		logs.Error("server start failed at "+adr+". ", zap.Error(err))
 		return err
 	}
 	return nil
@@ -32,13 +32,13 @@ func routes(e *echo.Echo) {
 	{
 		user := api.Group("/user")
 		{
-			user.GET("/:name", contro.UserGET, mdware.TokenVerify) // user index
-			user.POST("", contro.RegisterPOST) // register
-			user.PUT("/:name", contro.SetinfoPUT, mdware.TokenVerify)
-			user.DELETE("/:name", contro.DeletePOST, mdware.TokenVerify) // delete
-			
-			user.GET("/token", contro.LoginPOST) // login
-			user.DELETE("/token", contro.LogoutPOST, mdware.TokenVerify) // logout
+			user.GET("/:name", contro.UserIndexHandler, mdware.TokenVerify) // user index
+			user.POST("", contro.RegisterHandler)                           // register
+			user.PUT("/:name", contro.SetinfoHandler, mdware.TokenVerify)   // change user info
+			user.DELETE("/:name", contro.DeleteHandler, mdware.TokenVerify) // delete
+
+			user.GET("/token", contro.LoginHandler)                         // login
+			user.DELETE("/token", contro.LogoutHandler, mdware.TokenVerify) // logout
 		}
 	}
 }
