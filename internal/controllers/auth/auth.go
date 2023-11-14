@@ -1,24 +1,31 @@
 package auth
 
-import(
-	"fmt"
-	"time"
-	"errors"
-	"strings"
-	"crypto/sha256"
+import (
 	"crypto/md5"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
-		
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
 	"bbyd/internal/shared/config"
+	"bbyd/pkg/utils/response"
 
 	"github.com/dgrijalva/jwt-go"
 )
 
-type TokenClaims struct {
+const (
+	tokenHeaderName         = "Authorization"
+	tokenExpirationDuration = 30 * time.Minute
+)
+
+type Claims struct {
 	Username string `json:"username"`
 	jwt.StandardClaims
 }
+
 var skey []byte
 
 func Init(a config.Authorization) error {
@@ -29,31 +36,56 @@ func Init(a config.Authorization) error {
 	return nil
 }
 
-func GetSkey() []byte { return skey }
+func getSkey() []byte { return skey }
 
-func GenerateToken(name string) string {
-	c := TokenClaims{
+func GenerateToken(name string) (string, int64, error) {
+	expireAt := time.Now().Add(tokenExpirationDuration).Unix()
+	c := &Claims{
 		Username: name,
 		StandardClaims: jwt.StandardClaims{
-        	NotBefore: time.Now().Unix() - 60,
-        	ExpiresAt: time.Now().Unix() + 60,
-        	Issuer: name,
+			ExpiresAt: expireAt,
+			Issuer:    name,
 		},
 	}
 
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, c)
-	s, _ := t.SignedString(skey)
-	return string(s)
+	s, err := t.SignedString(skey)
+	if err != nil {
+		return "", 0, err
+	}
+	return s, expireAt, nil
+}
+
+// claims, err := auth.GetClaimsFromHeader(c)
+func GetClaimsFromHeader(c *response.ResponseContext) (Claims, error) {
+	bearer := strings.Split(c.Request().Header.Get(tokenHeaderName), " ")
+	if len(bearer) < 2 {
+		return Claims{}, errors.New("invalid header")
+	}
+	if bearer[0] != "Bearer" {
+		return Claims{}, errors.New("invalid header")
+	}
+
+	raw := bearer[1]
+	claims := Claims{}
+	_, err := jwt.ParseWithClaims(raw, &claims,
+		func(token *jwt.Token) (interface{}, error) {
+			return getSkey(), nil
+		})
+	if err != nil {
+		return Claims{}, err
+	}
+	return claims, nil
 }
 
 // salt := auth.GetSaltFromSecret(db_sec)
-func GetSaltFromSecret(s string) string { return s[ : strings.Index(s, "$")] }
+func GetSaltFromSecret(s string) string { return s[:strings.Index(s, "$")] }
 
 // sec := auth.GenerateSecret(req.Passwd, salt)
 func GenerateSecret(passwd string, salt string) string {
 	sha := fmt.Sprintf("%x", sha256.Sum256([]byte(passwd)))
-	return salt + "$" + 
-		fmt.Sprintf("%x", md5.Sum([]byte(sha + salt)))
+	return salt + "$" +
+		fmt.Sprintf("%x", md5.Sum([]byte(sha+salt)))
 }
 
 // salt := auth.GenerateSalt()

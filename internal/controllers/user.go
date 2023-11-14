@@ -1,8 +1,6 @@
 package controllers
 
 import(
-	// "fmt"
-	"time"
 	"net/http"
 
 	"bbyd/internal/model"
@@ -37,6 +35,11 @@ type setinfoRqst registerRqst
 type deleteRqst struct {
 	Name   string `json:"name"   form:"name"   query:"name"`
 }
+type loginResp struct {
+	Token string `json:"token"`
+	Token_expiration_time int64 `json:"token_expiration_time"`
+}
+type logoutResp loginResp
 
 // usr := GetProfile(c)
 // assume middleware has get model.UserModel from database 
@@ -78,13 +81,14 @@ func LoginPOST(cc echo.Context) error {
 		return c.BYResponse(http.StatusBadRequest, "wrong password", nil)
 	}
 
-	cookie := &http.Cookie{
-		Name: "token",
-		Value: auth.GenerateToken(req.Name),
-		HttpOnly: true,
+	token, expireAt, err := auth.GenerateToken(req.Name)
+	if err != nil {
+		return c.BYResponse(http.StatusInternalServerError, err.Error(), nil)
 	}
-	c.SetCookie(cookie)
-	return c.BYResponse(http.StatusOK, "login user " + req.Name, nil)
+	return c.BYResponse(http.StatusOK, "login user " + req.Name, loginResp{
+		Token: token,
+		Token_expiration_time: expireAt,
+	})
 }
 
 func RegisterPOST(cc echo.Context) error {
@@ -116,15 +120,10 @@ func RegisterPOST(cc echo.Context) error {
 func LogoutPOST(cc echo.Context) error {
 	c := cc.(*resp.ResponseContext)
 	usr := GetProfile(c)
-	cookie := &http.Cookie{
-		Name: "token",
-		Value: "",
-		Expires: time.Now().Add(-1e9),
-		MaxAge: -1,
-	}
-	c.SetCookie(cookie)
-
-	return c.BYResponse(http.StatusOK, "logout from user " + usr.Username, nil)
+	return c.BYResponse(http.StatusOK, "logout from user " + usr.Username, logoutResp{
+		Token: "",
+		Token_expiration_time: 0,
+	})
 }
 
 // assume user has been verified
