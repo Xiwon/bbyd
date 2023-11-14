@@ -31,7 +31,7 @@ func AutoMigrate(d config.Database) {
 		if err != nil {
 			logs.Warn("root register failed", zap.Error(err))
 		}
-		err  = TryChangeAuth("root", "admin")
+		_, err = TryChangeInfo("root", "", "", "admin")
 		if err != nil {
 			logs.Warn("root auth change failed", zap.Error(err))
 		}
@@ -79,20 +79,8 @@ func TryRegister(name string, passwd string, email string) error {
 	return nil
 }
 
-// err = TryChangeAuth(req.Name, req.To)
-func TryChangeAuth(name string, auth string) error {
-	var user UserModel
-	result := db.First(&user, "username = ?", name)
-	if result.RowsAffected == 0 {
-		return errors.New("user not found")
-	}
-	user.Auth = auth
-	db.Save(&user)
-	return nil
-}
-
 // msg, err := TryChangeInfo(req.Name, req.Passwd, req.Email)
-func TryChangeInfo(name string, passwd string, email string) (string, error) {
+func TryChangeInfo(name string, passwd string, email string, authoriz string) (string, error) {
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
 	if result.RowsAffected == 0 {
@@ -101,13 +89,17 @@ func TryChangeInfo(name string, passwd string, email string) (string, error) {
 	}
 
 	var msg string
+	if passwd != "" {
+		user.Secret = auth.GenerateSecret(passwd, auth.GenerateSalt())
+		msg += " passwd changed"
+	}
 	if email != "" {
 		user.Email = email
 		msg += " email changed to " + email
 	}
-	if passwd != "" {
-		user.Secret = auth.GenerateSecret(passwd, auth.GenerateSalt())
-		msg += " passwd changed"
+	if authoriz != "" {
+		user.Auth = authoriz
+		msg += " auth changed to " + authoriz
 	}
 	if msg == "" {
 		msg = "nothing changed"

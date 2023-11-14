@@ -27,19 +27,27 @@ type registerRqst struct {
 	Repeat string `json:"repeat" form:"repeat" query:"repeat"`
 	Email  string `json:"email"  form:"email"  query:"email"`
 }
-type setauthRqst struct {
-	Name   string `json:"name"   form:"name"   query:"name"`
-	To     string `json:"to"     form:"to"     query:"to"`
+type setinfoRqst struct {
+	Passwd string `json:"passwd" form:"passwd" query:"passwd"`
+	Repeat string `json:"repeat" form:"repeat" query:"repeat"`
+	Email  string `json:"email"  form:"email"  query:"email"`
+	Auth   string `json:"auth"   form:"auth"   query:"auth"`
 }
-type setinfoRqst registerRqst
-type deleteRqst struct {
-	Name   string `json:"name"   form:"name"   query:"name"`
-}
+
 type loginResp struct {
 	Token string `json:"token"`
 	Token_expiration_time int64 `json:"token_expiration_time"`
 }
 type logoutResp loginResp
+
+func UserModelToUserProfile(usr model.UserModel) UserProfile {
+	return UserProfile{
+		Uid: usr.ID,
+		Username: usr.Username,
+		Email: usr.Email,
+		Auth: usr.Auth,
+	}
+}
 
 // usr := GetProfile(c)
 // assume middleware has get model.UserModel from database 
@@ -53,7 +61,16 @@ func GetProfile(c echo.Context) UserProfile {
 func UserGET(cc echo.Context) error {
 	c := cc.(*resp.ResponseContext)
 	usr := GetProfile(c)
-	return c.BYResponse(http.StatusOK, "Welcome! Have a nice day", usr)
+	name := c.Param("name")
+	if usr.Auth != "admin" && usr.Username != name {
+		return c.BYResponse(http.StatusBadRequest, "you are not an admin", nil)
+	}
+	mod, err := model.GetUsrByName(name)
+	if err != nil {
+		return c.BYResponse(http.StatusBadRequest, "user not found", nil)
+	}
+	return c.BYResponse(http.StatusOK, "Welcome! Have a nice day", 
+		UserModelToUserProfile(mod))
 }
 
 func LoginPOST(cc echo.Context) error {
@@ -99,6 +116,7 @@ func RegisterPOST(cc echo.Context) error {
 		return err
 	}
 
+	// @todo: package validator
 	if req.Name == "" {
 		return c.BYResponse(http.StatusBadRequest, "empty username is not allowed", nil)
 	}
@@ -120,52 +138,44 @@ func RegisterPOST(cc echo.Context) error {
 func LogoutPOST(cc echo.Context) error {
 	c := cc.(*resp.ResponseContext)
 	usr := GetProfile(c)
+	// fake logout
 	return c.BYResponse(http.StatusOK, "logout from user " + usr.Username, logoutResp{
 		Token: "",
 		Token_expiration_time: 0,
 	})
+	// @todo: create token blacklist to immediately dispose invalid tokens
 }
 
-// assume user has been verified
-func SetauthPOST(cc echo.Context) error {
-	c := cc.(*resp.ResponseContext)
-	req := new(setauthRqst)
-	err := c.Bind(req)
-	if err != nil {
-		return err
-	}
-	usr := GetProfile(c)
-	if usr.Auth != "admin" {
-		return c.BYResponse(http.StatusBadRequest, "you are not an admin", nil)
-	}
-	if req.Name == "root" {
-		return c.BYResponse(http.StatusBadRequest, "CANNOT change root auth", nil)
-	}
-
-	err = model.TryChangeAuth(req.Name, req.To)
-	if err != nil {
-		return c.BYResponse(http.StatusBadRequest, "user " + req.Name + " not found", nil)
-	}
-	return c.BYResponse(http.StatusOK, "you've changed user " + req.Name + "'s Auth to " + req.To, nil)
-}
-
-// assume user has been verified
-func SetinfoPOST(cc echo.Context) error {
+func SetinfoPUT(cc echo.Context) error {
 	c := cc.(*resp.ResponseContext)
 	req := new(setinfoRqst)
+	name := c.Param("name")
 	err := c.Bind(req)
 	if err != nil {
 		return err
 	}
 	usr := GetProfile(c)
-	if usr.Auth != "admin" && usr.Username != req.Name {
-		return c.BYResponse(http.StatusBadRequest, "you are not an admin", nil)
+	if req.Passwd != "" || req.Repeat != "" || req.Email != "" {
+		if usr.Auth != "admin" && usr.Username != name {
+			return c.BYResponse(http.StatusBadRequest, "you are not an admin", nil)
+		}
+		if name == "root" && usr.Username != "root" {
+			return c.BYResponse(http.StatusBadRequest, "NOBODY can change root info except root", nil)
+		}
+		if req.Passwd != "" && req.Passwd != req.Repeat {
+			return c.BYResponse(http.StatusBadRequest, "invaild password", nil)
+		}
 	}
-	if req.Name == "root" && usr.Username != "root" {
-		return c.BYResponse(http.StatusBadRequest, "NOBODY can change root info except root", nil)
+	if req.Auth != "" {
+		if usr.Auth != "admin" {
+			return c.BYResponse(http.StatusBadRequest, "you are not an admin", nil)
+		}
+		if name == "root" {
+			return c.BYResponse(http.StatusBadRequest, "CANNOT change root auth", nil)
+		}
 	}
 
-	msg, err := model.TryChangeInfo(req.Name, req.Passwd, req.Email)
+	msg, err := model.TryChangeInfo(name, req.Passwd, req.Email, req.Auth)
 	if err != nil {
 		return c.BYResponse(http.StatusBadRequest, msg, nil)
 	}
@@ -175,21 +185,17 @@ func SetinfoPOST(cc echo.Context) error {
 // assume user has been verified
 func DeletePOST(cc echo.Context) error {
 	c := cc.(*resp.ResponseContext)
-	req := new(deleteRqst)
-	err := c.Bind(req)
-	if err != nil {
-		return err
-	}
+	name := c.Param("name")
 
 	usr := GetProfile(c)
-	if usr.Auth != "admin" && usr.Username != req.Name {
+	if usr.Auth != "admin" && usr.Username != name {
 		return c.BYResponse(http.StatusBadRequest, "you are not an admin", nil)
 	}
-	if req.Name == "root" {
+	if name == "root" {
 		return c.BYResponse(http.StatusBadRequest, "CANNOT delete root", nil)
 	}
 
-	msg, err := model.TryDelete(req.Name)
+	msg, err := model.TryDelete(name)
 	if err != nil {
 		return c.BYResponse(http.StatusBadRequest, msg, nil)
 	}

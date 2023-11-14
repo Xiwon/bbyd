@@ -32,16 +32,13 @@ func routes(e *echo.Echo) {
 	{
 		user := api.Group("/user")
 		{
-			user.GET("", contro.UserGET, mdware.TokenVerify)
-			user.GET("/", contro.UserGET, mdware.TokenVerify)
+			user.GET("/:name", contro.UserGET, mdware.TokenVerify) // user index
+			user.POST("", contro.RegisterPOST) // register
+			user.PUT("/:name", contro.SetinfoPUT, mdware.TokenVerify)
+			user.DELETE("/:name", contro.DeletePOST, mdware.TokenVerify) // delete
 			
-			user.POST("/login", contro.LoginPOST)
-			user.POST("/register", contro.RegisterPOST)
-			user.POST("/logout", contro.LogoutPOST, mdware.TokenVerify)
-
-			user.POST("/setauth", contro.SetauthPOST, mdware.TokenVerify)
-			user.POST("/setinfo", contro.SetinfoPOST, mdware.TokenVerify)
-			user.POST("/delete", contro.DeletePOST, mdware.TokenVerify)
+			user.GET("/token", contro.LoginPOST) // login
+			user.DELETE("/token", contro.LogoutPOST, mdware.TokenVerify) // logout
 		}
 	}
 }
