@@ -1,20 +1,20 @@
 package controllers
 
-import(
+import (
 	"net/http"
 
-	"bbyd/internal/model"
 	"bbyd/internal/controllers/auth"
+	"bbyd/internal/model"
 	resp "bbyd/pkg/utils/response"
-	
+
 	"github.com/labstack/echo/v4"
 )
 
 type UserProfile struct {
-	Uid uint
+	Uid      uint
 	Username string
-	Email string
-	Auth string
+	Email    string
+	Auth     string
 }
 
 type loginRqst struct {
@@ -35,30 +35,31 @@ type setinfoRqst struct {
 }
 
 type loginResp struct {
-	Token string `json:"token"`
-	Token_expiration_time int64 `json:"token_expiration_time"`
+	Token                 string `json:"token"`
+	Token_expiration_time int64  `json:"token_expiration_time"`
 }
 type logoutResp loginResp
 
 func UserModelToUserProfile(usr model.UserModel) UserProfile {
 	return UserProfile{
-		Uid: usr.ID,
+		Uid:      usr.ID,
 		Username: usr.Username,
-		Email: usr.Email,
-		Auth: usr.Auth,
+		Email:    usr.Email,
+		Auth:     usr.Auth,
 	}
 }
 
 // usr := GetProfile(c)
-// assume middleware has get model.UserModel from database 
+// assume middleware has get model.UserModel from database
 // & set `token_usr` to a controllers.UserProfile object
 func GetProfile(c echo.Context) UserProfile {
 	usr := c.Get("token_usr")
 	return *usr.(*UserProfile)
 }
 
-// assume user has been verified
-func UserGET(cc echo.Context) error {
+// GET /user/:name
+// authorized
+func UserIndexHandler(cc echo.Context) error {
 	c := cc.(*resp.ResponseContext)
 	usr := GetProfile(c)
 	name := c.Param("name")
@@ -69,46 +70,13 @@ func UserGET(cc echo.Context) error {
 	if err != nil {
 		return c.BYResponse(http.StatusBadRequest, "user not found", nil)
 	}
-	return c.BYResponse(http.StatusOK, "Welcome! Have a nice day", 
+	return c.BYResponse(http.StatusOK, "Welcome! Have a nice day",
 		UserModelToUserProfile(mod))
 }
 
-func LoginPOST(cc echo.Context) error {
-	c := cc.(*resp.ResponseContext)
-	req := new(loginRqst)
-	err := c.Bind(req)
-	if err != nil {
-		return err
-	}
-
-	legal := false
-	{	// password verify
-		db_sec, err := model.GetSecretByName(req.Name)
-		if err != nil {
-			return c.BYResponse(http.StatusBadRequest, "user not found", nil)
-		}
-		salt := auth.GetSaltFromSecret(db_sec)
-		sec := auth.GenerateSecret(req.Passwd, salt)
-		// get salt & generate secret
-		if sec == db_sec {
-			legal = true
-		}
-	}
-	if !legal {
-		return c.BYResponse(http.StatusBadRequest, "wrong password", nil)
-	}
-
-	token, expireAt, err := auth.GenerateToken(req.Name)
-	if err != nil {
-		return c.BYResponse(http.StatusInternalServerError, err.Error(), nil)
-	}
-	return c.BYResponse(http.StatusOK, "login user " + req.Name, loginResp{
-		Token: token,
-		Token_expiration_time: expireAt,
-	})
-}
-
-func RegisterPOST(cc echo.Context) error {
+// POST /user
+// unauthorized
+func RegisterHandler(cc echo.Context) error {
 	c := cc.(*resp.ResponseContext)
 	req := new(registerRqst)
 	err := c.Bind(req)
@@ -134,19 +102,9 @@ func RegisterPOST(cc echo.Context) error {
 	return c.BYResponse(http.StatusOK, "successfully registered", nil)
 }
 
-// assume user has been verified
-func LogoutPOST(cc echo.Context) error {
-	c := cc.(*resp.ResponseContext)
-	usr := GetProfile(c)
-	// fake logout
-	return c.BYResponse(http.StatusOK, "logout from user " + usr.Username, logoutResp{
-		Token: "",
-		Token_expiration_time: 0,
-	})
-	// @todo: create token blacklist to immediately dispose invalid tokens
-}
-
-func SetinfoPUT(cc echo.Context) error {
+// PUT /user/:name
+// authorized
+func SetinfoHandler(cc echo.Context) error {
 	c := cc.(*resp.ResponseContext)
 	req := new(setinfoRqst)
 	name := c.Param("name")
@@ -182,8 +140,9 @@ func SetinfoPUT(cc echo.Context) error {
 	return c.BYResponse(http.StatusOK, msg, nil)
 }
 
-// assume user has been verified
-func DeletePOST(cc echo.Context) error {
+// DELETE /user/:name
+// authorized
+func DeleteHandler(cc echo.Context) error {
 	c := cc.(*resp.ResponseContext)
 	name := c.Param("name")
 
@@ -200,4 +159,54 @@ func DeletePOST(cc echo.Context) error {
 		return c.BYResponse(http.StatusBadRequest, msg, nil)
 	}
 	return c.BYResponse(http.StatusOK, msg, nil)
+}
+
+// GET /user/token
+// unauthorized
+func LoginHandler(cc echo.Context) error {
+	c := cc.(*resp.ResponseContext)
+	req := new(loginRqst)
+	err := c.Bind(req)
+	if err != nil {
+		return err
+	}
+
+	legal := false
+	{ // password verify
+		db_sec, err := model.GetSecretByName(req.Name)
+		if err != nil {
+			return c.BYResponse(http.StatusBadRequest, "user not found", nil)
+		}
+		salt := auth.GetSaltFromSecret(db_sec)
+		sec := auth.GenerateSecret(req.Passwd, salt)
+		// get salt & generate secret
+		if sec == db_sec {
+			legal = true
+		}
+	}
+	if !legal {
+		return c.BYResponse(http.StatusBadRequest, "wrong password", nil)
+	}
+
+	token, expireAt, err := auth.GenerateToken(req.Name)
+	if err != nil {
+		return c.BYResponse(http.StatusInternalServerError, err.Error(), nil)
+	}
+	return c.BYResponse(http.StatusOK, "login user "+req.Name, loginResp{
+		Token:                 token,
+		Token_expiration_time: expireAt,
+	})
+}
+
+// DELETE /user/token
+// authorized
+func LogoutHandler(cc echo.Context) error {
+	c := cc.(*resp.ResponseContext)
+	usr := GetProfile(c)
+	// fake logout
+	return c.BYResponse(http.StatusOK, "logout from user "+usr.Username, logoutResp{
+		Token:                 "",
+		Token_expiration_time: 0,
+	})
+	// @todo: create token blacklist to immediately dispose invalid tokens
 }
