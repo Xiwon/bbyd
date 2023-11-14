@@ -20,16 +20,12 @@ func TokenVerify(next echo.HandlerFunc) echo.HandlerFunc {
 			return c.BYResponse(http.StatusBadRequest, err.Error(), nil)
 		}
 
-		usr, err := model.GetUsrByName(claims.Username) // get raw data from database
+		mod, err := model.GetUsrByName(claims.Username) // get raw data from database
 		if err != nil {
 			return c.BYResponse(http.StatusBadRequest, "no such user", nil)
 		}
-		c.Set("token_usr", &contro.UserProfile{
-			Uid: usr.ID,
-			Username: usr.Username,
-			Email: usr.Email,
-			Auth: usr.Auth,
-		})
+		usr := contro.UserModelToUserProfile(mod)
+		c.Set("token_usr", &usr)
 		// set `token_usr` to contro.UserProfile object
 
 		return next(c)
