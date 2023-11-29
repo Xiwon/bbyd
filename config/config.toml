@@ -1,0 +1,15 @@
+[server]
+host = 'localhost'
+port = 11451
+
+[database]
+host = 'localhost'
+port = 5432
+user = 'postgres'
+password = ''
+dbname = 'byddb'
+sslmode = false
+preregisterroot = true
+
+[authorization]
+skey = 'bbingyan_jwt_skey_58490998'
