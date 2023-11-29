@@ -26,7 +26,7 @@ type Authorization struct {
 type Config struct {
 	Server        Server        `toml:"server"`
 	Database      Database      `toml:"database"`
-	Authorization Authorization `toml:authorization`
+	Authorization Authorization `toml:"authorization"`
 }
 
 func Create() error {
