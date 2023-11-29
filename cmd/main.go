@@ -8,22 +8,22 @@ import(
 )
 
 func main() {
-	conf, err := config.Create()
+	err := config.Create()
 	if err != nil {
 		panic(err)
 	}
 
-	err = model.Init(conf.Database)
+	err = model.Init(config.Configs.Database)
 	if err != nil {
 		panic(err)
 	}
 
-	err = auth.Init(conf.Authorization)
+	err = auth.Init(config.Configs.Authorization)
 	if err != nil {
 		panic(err)
 	}
 
-	err = server.Run(conf.Server)
+	err = server.Run(config.Configs.Server)
 	if err != nil {
 		panic(err)
 	}

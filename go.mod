@@ -3,6 +3,7 @@ module bbyd
 go 1.21.3
 
 require (
+	github.com/BurntSushi/toml v1.3.2
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-playground/validator/v10 v10.16.0
 	github.com/labstack/echo/v4 v4.11.2

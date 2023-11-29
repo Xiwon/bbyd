@@ -1,46 +1,35 @@
 package config
 
+import (
+	"github.com/BurntSushi/toml"
+)
+
+var Configs *Config = &Config{}
+
 type Server struct {
-	Host string
-	Port int
+	Host string `toml:"host"`
+	Port int    `toml:"port"`
 }
 type Database struct {
-	Host            string
-	Port            int
-	User            string
-	Password        string
-	DbName          string
-	SslMode         bool
-	PreRegisterRoot bool
+	Host            string `toml:"host"`
+	Port            int    `toml:"port"`
+	User            string `toml:"user"`
+	Password        string `toml:"password"`
+	DbName          string `toml:"dbname"`
+	SslMode         bool   `toml:"sslmode"`
+	PreRegisterRoot bool   `toml:"preregisterroot"`
 }
 type Authorization struct {
-	Skey string
+	Skey string `toml:"skey"`
 }
 
 type Config struct {
-	Server        Server
-	Database      Database
-	Authorization Authorization
+	Server        Server        `toml:"server"`
+	Database      Database      `toml:"database"`
+	Authorization Authorization `toml:authorization`
 }
 
-func Create() (c Config, e error) {
-	c.Server = Server{
-		Host: "localhost",
-		Port: 11451,
-	}
-	c.Database = Database{
-		Host:     "localhost",
-		Port:     5432,
-		User:     "postgres",
-		Password: "",
-		DbName:   "byddb",
-		SslMode:  false,
-
-		PreRegisterRoot: true,
-	}
-	c.Authorization = Authorization{
-		Skey: "bbingyan_jwt_skey_58490998",
-	}
-
-	return
+func Create() error {
+	_, err := toml.DecodeFile("../config/config.toml", Configs)
+	return err
 }
