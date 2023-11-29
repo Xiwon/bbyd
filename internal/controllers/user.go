@@ -8,6 +8,7 @@ import (
 	resp "bbyd/pkg/utils/response"
 
 	"github.com/labstack/echo/v4"
+	"github.com/go-playground/validator/v10"
 )
 
 type UserProfile struct {
@@ -16,15 +17,16 @@ type UserProfile struct {
 	Email    string
 	Auth     string
 }
+var validate *validator.Validate = validator.New()
 
 type loginRqst struct {
 	Name   string `json:"name"   form:"name"   query:"name"`
 	Passwd string `json:"passwd" form:"passwd" query:"passwd"`
 }
 type registerRqst struct {
-	Name   string `json:"name"   form:"name"   query:"name"`
-	Passwd string `json:"passwd" form:"passwd" query:"passwd"`
-	Repeat string `json:"repeat" form:"repeat" query:"repeat"`
+	Name   string `json:"name"   form:"name"   query:"name"   validate:"required"`
+	Passwd string `json:"passwd" form:"passwd" query:"passwd" validate:"required"`
+	Repeat string `json:"repeat" form:"repeat" query:"repeat" validate:"required,eqfield=Passwd"`
 	Email  string `json:"email"  form:"email"  query:"email"`
 }
 type setinfoRqst struct {
@@ -84,15 +86,9 @@ func RegisterHandler(cc echo.Context) error {
 		return err
 	}
 
-	// @todo: package validator
-	if req.Name == "" {
-		return c.BYResponse(http.StatusBadRequest, "empty username is not allowed", nil)
-	}
-	if req.Passwd == "" {
-		return c.BYResponse(http.StatusBadRequest, "empty password is not allowed", nil)
-	}
-	if req.Passwd != req.Repeat {
-		return c.BYResponse(http.StatusBadRequest, "repeat password differs from the first input", nil)
+	err = validate.Struct(req)
+	if err != nil {
+		return c.BYResponse(http.StatusBadRequest, "invalid form", err.Error())
 	}
 
 	err = model.TryRegister(req.Name, req.Passwd, req.Email)
