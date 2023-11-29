@@ -9,7 +9,18 @@ user = 'postgres'
 password = ''
 dbname = 'byddb'
 sslmode = false
-preregisterroot = true
+preregister_root = true
 
 [authorization]
 skey = 'bbingyan_jwt_skey_58490998'
+
+[constants]
+token_header_name = 'Authorization'
+token_expiration_minute = 30
+
+api_path_root = '/api/v1'
+
+admin_authname = 'admin'
+default_authname = 'normal'
+root_name = 'root'
+root_default_password = '123456'

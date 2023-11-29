@@ -16,11 +16,6 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
-const (
-	tokenHeaderName         = "Authorization"
-	tokenExpirationDuration = 30 * time.Minute
-)
-
 type Claims struct {
 	Username string `json:"username"`
 	jwt.StandardClaims
@@ -39,6 +34,7 @@ func Init(a config.Authorization) error {
 func getSkey() []byte { return skey }
 
 func GenerateToken(name string) (string, int64, error) {
+	tokenExpirationDuration := config.Configs.Constants.TokenExpirationDuration
 	expireAt := time.Now().Add(tokenExpirationDuration).Unix()
 	c := &Claims{
 		Username: name,
@@ -58,6 +54,7 @@ func GenerateToken(name string) (string, int64, error) {
 
 // claims, err := auth.GetClaimsFromHeader(c)
 func GetClaimsFromHeader(c *response.ResponseContext) (Claims, error) {
+	tokenHeaderName := config.Configs.Constants.TokenHeaderName
 	bearer := strings.Split(c.Request().Header.Get(tokenHeaderName), " ")
 	if len(bearer) < 2 {
 		return Claims{}, errors.New("invalid header")

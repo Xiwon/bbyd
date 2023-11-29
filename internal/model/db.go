@@ -27,11 +27,11 @@ func AutoMigrate(d config.Database) {
 
 	// pre-register root admin
 	if d.PreRegisterRoot {
-		err := TryRegister("root", "123456", "")
+		err := TryRegister(config.Configs.Constants.RootName, config.Configs.Constants.RootDefaultPasswd, "")
 		if err != nil {
 			logs.Warn("root register failed", zap.Error(err))
 		}
-		_, err = TryChangeInfo("root", "", "", "admin")
+		_, err = TryChangeInfo(config.Configs.Constants.RootName, "", "", config.Configs.Constants.AdminAuthname)
 		if err != nil {
 			logs.Warn("root auth change failed", zap.Error(err))
 		}
@@ -73,7 +73,7 @@ func TryRegister(name string, passwd string, email string) error {
 		Username: name,
 		Secret:   auth.GenerateSecret(passwd, auth.GenerateSalt()),
 		Email:    email,
-		Auth:     "normal",
+		Auth:     config.Configs.Constants.DefaultAuthname,
 	}
 	db.Create(&user)
 	return nil
