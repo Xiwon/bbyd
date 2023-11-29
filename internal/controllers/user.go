@@ -5,6 +5,7 @@ import (
 
 	"bbyd/internal/controllers/auth"
 	"bbyd/internal/model"
+	"bbyd/internal/shared/config"
 	resp "bbyd/pkg/utils/response"
 
 	"github.com/labstack/echo/v4"
@@ -65,7 +66,7 @@ func UserIndexHandler(cc echo.Context) error {
 	c := cc.(*resp.ResponseContext)
 	usr := GetProfile(c)
 	name := c.Param("name")
-	if usr.Auth != "admin" && usr.Username != name {
+	if usr.Auth != config.Configs.Constants.AdminAuthname && usr.Username != name {
 		return c.BYResponse(http.StatusBadRequest, "you are not an admin", nil)
 	}
 	mod, err := model.GetUsrByName(name)
@@ -110,10 +111,10 @@ func SetinfoHandler(cc echo.Context) error {
 	}
 	usr := GetProfile(c)
 	if req.Passwd != "" || req.Repeat != "" || req.Email != "" {
-		if usr.Auth != "admin" && usr.Username != name {
+		if usr.Auth != config.Configs.Constants.AdminAuthname && usr.Username != name {
 			return c.BYResponse(http.StatusBadRequest, "you are not an admin", nil)
 		}
-		if name == "root" && usr.Username != "root" {
+		if name == config.Configs.Constants.RootName && usr.Username != name {
 			return c.BYResponse(http.StatusBadRequest, "NOBODY can change root info except root", nil)
 		}
 		if req.Passwd != "" && req.Passwd != req.Repeat {
@@ -121,10 +122,10 @@ func SetinfoHandler(cc echo.Context) error {
 		}
 	}
 	if req.Auth != "" {
-		if usr.Auth != "admin" {
+		if usr.Auth != config.Configs.Constants.AdminAuthname {
 			return c.BYResponse(http.StatusBadRequest, "you are not an admin", nil)
 		}
-		if name == "root" {
+		if name == config.Configs.Constants.RootName {
 			return c.BYResponse(http.StatusBadRequest, "CANNOT change root auth", nil)
 		}
 	}
@@ -143,10 +144,10 @@ func DeleteHandler(cc echo.Context) error {
 	name := c.Param("name")
 
 	usr := GetProfile(c)
-	if usr.Auth != "admin" && usr.Username != name {
+	if usr.Auth != config.Configs.Constants.AdminAuthname && usr.Username != name {
 		return c.BYResponse(http.StatusBadRequest, "you are not an admin", nil)
 	}
-	if name == "root" {
+	if name == config.Configs.Constants.RootName {
 		return c.BYResponse(http.StatusBadRequest, "CANNOT delete root", nil)
 	}
 
