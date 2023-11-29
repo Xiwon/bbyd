@@ -22,8 +22,11 @@ type UserModel struct {
 	Auth     string
 }
 
-func AutoMigrate(d config.Database) {
-	db.AutoMigrate(&UserModel{})
+func AutoMigrate(d config.Database) error {
+	err := db.AutoMigrate(&UserModel{})
+	if err != nil {
+		return err
+	}
 
 	// pre-register root admin
 	if d.PreRegisterRoot {
@@ -38,14 +41,21 @@ func AutoMigrate(d config.Database) {
 	}
 
 	var usrdatas []UserModel
-	db.Find(&usrdatas)
+	err = db.Find(&usrdatas).Error
+	if err != nil {
+		return err
+	}
 	fmt.Println("database status:\n", usrdatas)
+	return nil
 }
 
 // usr, err := model.GetUsrByName(name)
 func GetUsrByName(name string) (UserModel, error) {
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
+	if result.Error != nil {
+		return UserModel{}, result.Error
+	}
 	if result.RowsAffected == 0 {
 		return UserModel{}, errors.New("not found")
 	}
@@ -56,6 +66,9 @@ func GetUsrByName(name string) (UserModel, error) {
 func GetSecretByName(name string) (string, error) {
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
+	if result.Error != nil {
+		return "", result.Error
+	}
 	if result.RowsAffected == 0 {
 		return "", errors.New("not found")
 	}
@@ -66,6 +79,9 @@ func GetSecretByName(name string) (string, error) {
 func TryRegister(name string, passwd string, email string) error {
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
+	if result.Error != nil {
+		return result.Error
+	}
 	if result.RowsAffected > 0 {
 		return errors.New("exist user")
 	}
@@ -75,14 +91,16 @@ func TryRegister(name string, passwd string, email string) error {
 		Email:    email,
 		Auth:     config.Configs.Constants.DefaultAuthname,
 	}
-	db.Create(&user)
-	return nil
+	return db.Create(&user).Error
 }
 
 // msg, err := TryChangeInfo(req.Name, req.Passwd, req.Email)
 func TryChangeInfo(name string, passwd string, email string, authoriz string) (string, error) {
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
+	if result.Error != nil {
+		return "", result.Error
+	}
 	if result.RowsAffected == 0 {
 		return "user " + name + " not found",
 			errors.New("user not found")
@@ -104,7 +122,10 @@ func TryChangeInfo(name string, passwd string, email string, authoriz string) (s
 	if msg == "" {
 		msg = "nothing changed"
 	} else {
-		db.Save(&user)
+		err := db.Save(&user).Error
+		if err != nil {
+			return "", err
+		}
 	}
 
 	return msg, nil
@@ -114,10 +135,16 @@ func TryChangeInfo(name string, passwd string, email string, authoriz string) (s
 func TryDelete(name string) (string, error) {
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
+	if result.Error != nil {
+		return "", result.Error
+	}
 	if result.RowsAffected == 0 {
 		return "user " + name + " not found",
 			errors.New("user not found")
 	}
-	db.Delete(&user)
+	err := db.Delete(&user).Error
+	if err != nil {
+		return "", err
+	}
 	return "delete user " + name, nil
 }

@@ -22,7 +22,7 @@ func TokenVerify(next echo.HandlerFunc) echo.HandlerFunc {
 
 		mod, err := model.GetUsrByName(claims.Username) // get raw data from database
 		if err != nil {
-			return c.BYResponse(http.StatusBadRequest, "no such user", nil)
+			return c.BYResponse(http.StatusBadRequest, "database error", err.Error())
 		}
 		usr := contro.UserModelToUserProfile(mod)
 		c.Set("token_usr", &usr)
