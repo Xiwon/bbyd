@@ -1,6 +1,7 @@
 package model
 
 import (
+	"time"
 	"errors"
 	"fmt"
 
@@ -10,9 +11,11 @@ import (
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"github.com/garyburd/redigo/redis"
 )
 
-var db *gorm.DB
+var db *gorm.DB           // postgresql
+var redisConn redis.Conn // redis
 
 type UserModel struct {
 	gorm.Model
@@ -147,4 +150,34 @@ func TryDelete(name string) (string, error) {
 		return "", err
 	}
 	return "delete user " + name, nil
+}
+
+func GetEmailLastSendTime(email string) (interface{}, error) {
+	las, err := redisConn.Do("get", "emailLastSendTime:" + email)
+	return las, err
+}
+
+func UpdateCodeSendRecord(email string, code string, name string) error {
+	_, err := redisConn.Do("set", "emailLastSendTime:" + email, fmt.Sprintf("%d", time.Now().Unix()))
+	if err != nil {
+		return err
+	}
+
+	_, err = redisConn.Do("set", "codeUser:" + code, name)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func VerifyUsrByCode(code string) (string, error) {
+	user, err := redisConn.Do("get", "codeUser:" + code)
+	if err != nil {
+		return "", errors.New("redis get error")
+	}
+	if user == nil {
+		return "", errors.New("invalid verification code")
+	}
+
+	return user.(string), nil
 }

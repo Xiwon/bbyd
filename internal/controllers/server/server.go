@@ -39,6 +39,8 @@ func routes(e *echo.Echo) {
 			user.DELETE("/:name", contro.DeleteHandler, mdware.TokenVerify) // delete
 
 			user.GET("/token", contro.LoginHandler)                         // login
+			user.GET("/token/email", contro.LoginByEmailHandler)            // email verify request
+			user.GET("/token/vcode", contro.LoginByCodeHandler)             // write verification code to login 
 			user.DELETE("/token", contro.LogoutHandler, mdware.TokenVerify) // logout
 		}
 	}

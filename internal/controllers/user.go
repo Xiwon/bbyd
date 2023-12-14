@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"time"
+	"strconv"
 	"net/http"
 
 	"bbyd/internal/controllers/auth"
@@ -40,6 +42,12 @@ type setinfoRqst struct {
 type loginResp struct {
 	Token                 string `json:"token"`
 	Token_expiration_time int64  `json:"token_expiration_time"`
+}
+type loginByEmailRqst struct {
+	Name string `json:"name" form:"name" query:"name"`
+}
+type loginByCodeRqst struct {
+	Code string `json:"code" form:"code" query:"code"`
 }
 type logoutResp loginResp
 
@@ -190,6 +198,70 @@ func LoginHandler(cc echo.Context) error {
 		return c.BYResponse(http.StatusInternalServerError, err.Error(), nil)
 	}
 	return c.BYResponse(http.StatusOK, "login user "+req.Name, loginResp{
+		Token:                 token,
+		Token_expiration_time: expireAt,
+	})
+}
+
+// GET /user/token/email
+// unauthorized
+func LoginByEmailHandler(cc echo.Context) error {
+	c := cc.(*resp.ResponseContext)
+	req := new(loginByEmailRqst)
+	err := c.Bind(req)
+	if err != nil {
+		return err
+	}
+
+	mod, err := model.GetUsrByName(req.Name)
+	if err != nil {
+		return c.BYResponse(http.StatusBadRequest, "database error", err.Error())
+	}
+	email := mod.Email
+
+	las, err := model.GetEmailLastSendTime(email)
+	if err == nil && las != nil {
+		timestamp, err := strconv.ParseInt(las.(string), 10, 64)
+		if err != nil {
+			return c.BYResponse(http.StatusInternalServerError, "ParseInt failed", err.Error())
+		}
+		if time.Now().Unix() - timestamp < 60 {
+			return c.BYResponse(http.StatusBadRequest, "too frequent requests", nil)
+		}
+	}
+
+	code := auth.GenerateVerificationCode()
+	err = auth.SendVerificationCodeEmail(email, code, req.Name)
+	if err != nil {
+		return c.BYResponse(http.StatusInternalServerError, "send verification email failed", err.Error())
+	}
+	err = model.UpdateCodeSendRecord(email, code, req.Name)
+	if err != nil {
+		return c.BYResponse(http.StatusInternalServerError, "update verification code failed", err.Error())
+	}
+	return c.BYResponse(http.StatusOK, "verification code has been sent to " + email, nil)
+}
+
+// GET /user/token/vcode
+// unauthorized
+func LoginByCodeHandler(cc echo.Context) error {
+	c := cc.(*resp.ResponseContext)
+	req := new(loginByCodeRqst)
+	err := c.Bind(req)
+	if err != nil {
+		return err
+	}
+
+	user, err := model.VerifyUsrByCode(req.Code)
+	if err != nil {
+		return c.BYResponse(http.StatusBadRequest, "database error", err.Error())
+	}
+
+	token, expireAt, err := auth.GenerateToken(user)
+	if err != nil {
+		return c.BYResponse(http.StatusInternalServerError, err.Error(), nil)
+	}
+	return c.BYResponse(http.StatusOK, "login user "+user, loginResp{
 		Token:                 token,
 		Token_expiration_time: expireAt,
 	})

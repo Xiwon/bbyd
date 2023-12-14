@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"net/smtp"
 	"crypto/md5"
 	"crypto/rand"
 	"crypto/sha256"
@@ -9,11 +10,14 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"strconv"
+	mathRand "math/rand"
 
 	"bbyd/internal/shared/config"
 	"bbyd/pkg/utils/response"
 
 	"github.com/dgrijalva/jwt-go"
+	goEmail "github.com/jordan-wright/email" 
 )
 
 type Claims struct {
@@ -90,4 +94,28 @@ func GenerateSalt() string {
 	b := make([]byte, 32)
 	rand.Read(b)
 	return base64.URLEncoding.EncodeToString(b)
+}
+
+func GenerateVerificationCode() string {
+	mathRand.NewSource(time.Now().Unix())
+	return fmt.Sprintf("%6d", mathRand.Intn(1000000))
+}
+
+func SendVerificationCodeEmail(to string, code string, rqstUser string) error {
+	conf := config.Configs.SmtpConfig
+	sender, password := conf.Sender, conf.Password
+	host, port := conf.Host, conf.Port
+
+	plainAuth := smtp.PlainAuth("", sender, password, host)
+	em := goEmail.NewEmail()
+	em.From = "Bbyd System Mail"
+	em.To = []string{to}
+	em.Subject = string("Verification Code Mail")
+	em.Text = []byte(
+		"Your verification code is: " + code + "\n" +
+		"You can use this code to login user " + rqstUser + ".\n" +
+		"Please use the code quickly, which will be expired in " + 
+			strconv.Itoa(config.Configs.SmtpConfig.CodeExpirationMinute) + "minutes.")
+
+	return em.Send(host + ":" + strconv.Itoa(port), plainAuth)
 }

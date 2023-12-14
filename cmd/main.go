@@ -1,6 +1,8 @@
 package main
 
 import(
+	"os"
+
 	"bbyd/internal/model"
 	"bbyd/internal/shared/config"
 	"bbyd/internal/controllers/auth"
@@ -8,12 +10,20 @@ import(
 )
 
 func main() {
-	err := config.Create()
+	args := os.Args
+	var configTomlPath = ""
+	if len(args) < 2 {
+		configTomlPath = "../config/config.toml"
+	} else {
+		configTomlPath = args[1]
+	}
+
+	err := config.Create(configTomlPath)
 	if err != nil {
 		panic(err)
 	}
 
-	err = model.Init(config.Configs.Database)
+	err = model.Init(config.Configs.Database, config.Configs.RedisConfig)
 	if err != nil {
 		panic(err)
 	}

@@ -1,0 +1,4 @@
+# test directory
+test/
+cmd/myconf.toml
+cmd/main

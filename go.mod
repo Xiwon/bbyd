@@ -5,7 +5,9 @@ go 1.21.3
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/garyburd/redigo v1.6.4
 	github.com/go-playground/validator/v10 v10.16.0
+	github.com/jordan-wright/email v4.0.1-0.20210109023952-943e75fe5223+incompatible
 	github.com/labstack/echo/v4 v4.11.2
 	go.uber.org/zap v1.26.0
 	gorm.io/driver/postgres v1.5.4

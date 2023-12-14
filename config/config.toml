@@ -1,3 +1,5 @@
+# an example config file
+
 [server]
 host = 'localhost'
 port = 11451
@@ -10,6 +12,10 @@ password = ''
 dbname = 'byddb'
 sslmode = false
 preregister_root = true
+
+[redis]
+host = '127.0.0.1'
+port = 6377
 
 [authorization]
 skey = 'bbingyan_jwt_skey_58490998'
@@ -24,3 +30,10 @@ admin_authname = 'admin'
 default_authname = 'normal'
 root_name = 'root'
 root_default_password = '123456'
+
+[smtp]
+# sender = <your email address>
+# password = <your email smtp password>
+# host = <your email server host>
+port = 25
+code_expiration_minute = 5

@@ -22,6 +22,10 @@ type Database struct {
 	SslMode         bool   `toml:"sslmode"`
 	PreRegisterRoot bool   `toml:"preregister_root"`
 }
+type RedisConfig struct {
+	Host string `toml:"host"`
+	Port int    `toml:"port" validate:"required,gte=0,lt=65536"`
+}
 type Authorization struct {
 	Skey string `toml:"skey" validate:"required"`
 }
@@ -39,14 +43,25 @@ type Constants struct {
 	RootDefaultPasswd string `toml:"root_default_password" validate:"required"`
 }
 
+type SmtpConfig struct {
+	Sender                 string `toml:"sender"    validate:"required"`
+	Password               string `toml:"password"  validate:"required"`
+	Host                   string `toml:"host"      validate:"required"`
+	Port                   int    `toml:"port"      validate:"gte=0,lt=65536"`
+	CodeExpirationMinute   int    `toml:"code_expiration_minute"`
+	CodeExpirationDuration time.Duration
+}
+
 type Config struct {
 	Server        Server        `toml:"server"`
 	Database      Database      `toml:"database"`
+	RedisConfig   RedisConfig   `toml:"redis"`
 	Authorization Authorization `toml:"authorization"`
 	Constants     Constants     `toml:"constants"`
+	SmtpConfig    SmtpConfig    `toml:"smtp"`
 }
 
-func Create() error {
+func Create(path string) error {
 	// default settings
 	Configs.Server.Host = "localhost"
 
@@ -54,9 +69,14 @@ func Create() error {
 	Configs.Database.SslMode = false
 	Configs.Database.PreRegisterRoot = true
 
+	Configs.RedisConfig.Host = "127.0.0.1"
+
 	Configs.Constants.TokenHeaderName = "Authorization"
 
-	_, err := toml.DecodeFile("../config/config.toml", Configs)
+	Configs.SmtpConfig.Port = 25
+	Configs.SmtpConfig.CodeExpirationMinute = 5
+
+	_, err := toml.DecodeFile(path, Configs)
 	if err != nil {
 		return err
 	}
@@ -68,6 +88,8 @@ func Create() error {
 	// after work
 	Configs.Constants.TokenExpirationDuration =
 		time.Duration(Configs.Constants.TokenExpirationMinute) * time.Minute
+	Configs.SmtpConfig.CodeExpirationDuration = 
+		time.Duration(Configs.SmtpConfig.CodeExpirationMinute) * time.Minute
 
 	return nil
 }
