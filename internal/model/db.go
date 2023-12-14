@@ -4,6 +4,7 @@ import (
 	"time"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"bbyd/internal/shared/config"
 	"bbyd/internal/controllers/auth"
@@ -167,6 +168,12 @@ func UpdateCodeSendRecord(email string, code string, name string) error {
 	if err != nil {
 		return err
 	}
+
+	_, err = redisConn.Do("set", "codeSendTime:" + code, fmt.Sprintf("%d", time.Now().Unix()))
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -175,7 +182,28 @@ func VerifyUsrByCode(code string) (string, error) {
 	if err != nil {
 		return "", errors.New("redis get error")
 	}
-	if user == nil {
+	if user == nil { // not found
+		return "", errors.New("invalid verification code")
+	}
+
+	sendTime, err := redisConn.Do("get", "codeSendTime:" + code)
+	if err != nil {
+		return "", errors.New("redis get error")
+	}
+	// assert sendTime != nil
+	timeStamp, err := strconv.ParseInt(sendTime.(string), 10, 64)
+	expired := false
+	if time.Now().Unix() - timeStamp > 
+		60 * int64(config.Configs.SmtpConfig.CodeExpirationMinute) { // verification code expired 
+		expired = true
+	}
+
+	_, err = redisConn.Do("del", "codeUser:" + code, "codeSendTime:" + code)
+	if err != nil {
+		return "", errors.New("redis del error")
+	}
+
+	if (expired) {
 		return "", errors.New("invalid verification code")
 	}
 
