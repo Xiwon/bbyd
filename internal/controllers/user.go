@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"time"
+	"errors"
 	"strconv"
 	"net/http"
 
@@ -79,7 +80,11 @@ func UserIndexHandler(cc echo.Context) error {
 	}
 	mod, err := model.GetUsrByName(name)
 	if err != nil {
-		return c.BYResponse(http.StatusBadRequest, "database error", err.Error())
+		if errors.Is(err, model.DBInternalError) {
+			return c.BYResponse(http.StatusInternalServerError, "", err.Error())
+		} else {
+			return c.BYResponse(http.StatusBadRequest, "", err.Error())
+		}
 	}
 	return c.BYResponse(http.StatusOK, "Welcome! Have a nice day",
 		UserModelToUserProfile(mod))
@@ -102,8 +107,13 @@ func RegisterHandler(cc echo.Context) error {
 
 	err = model.TryRegister(req.Name, req.Passwd, req.Email)
 	if err != nil {
-		return c.BYResponse(http.StatusBadRequest, "database error", err.Error())
+		if errors.Is(err, model.DBInternalError) {
+			return c.BYResponse(http.StatusInternalServerError, "", err.Error())
+		} else {
+			return c.BYResponse(http.StatusBadRequest, "", err.Error())
+		}
 	}
+
 	return c.BYResponse(http.StatusOK, "successfully registered", nil)
 }
 
@@ -140,7 +150,11 @@ func SetinfoHandler(cc echo.Context) error {
 
 	msg, err := model.TryChangeInfo(name, req.Passwd, req.Email, req.Auth)
 	if err != nil {
-		return c.BYResponse(http.StatusBadRequest, msg, err.Error())
+		if errors.Is(err, model.DBInternalError) {
+			return c.BYResponse(http.StatusInternalServerError, "", err.Error())
+		} else {
+			return c.BYResponse(http.StatusBadRequest, "", err.Error())
+		}
 	}
 	return c.BYResponse(http.StatusOK, msg, nil)
 }
@@ -161,7 +175,11 @@ func DeleteHandler(cc echo.Context) error {
 
 	msg, err := model.TryDelete(name)
 	if err != nil {
-		return c.BYResponse(http.StatusBadRequest, msg, err.Error())
+		if errors.Is(err, model.DBInternalError) {
+			return c.BYResponse(http.StatusInternalServerError, "", err.Error())
+		} else {
+			return c.BYResponse(http.StatusBadRequest, "", err.Error())
+		}
 	}
 	return c.BYResponse(http.StatusOK, msg, nil)
 }
@@ -180,7 +198,11 @@ func LoginHandler(cc echo.Context) error {
 	{ // password verify
 		db_sec, err := model.GetSecretByName(req.Name)
 		if err != nil {
-			return c.BYResponse(http.StatusBadRequest, "database error", err.Error())
+			if errors.Is(err, model.DBInternalError) {
+				return c.BYResponse(http.StatusInternalServerError, "", err.Error())
+			} else {
+				return c.BYResponse(http.StatusBadRequest, "", err.Error())
+			}
 		}
 		salt := auth.GetSaltFromSecret(db_sec)
 		sec := auth.GenerateSecret(req.Passwd, salt)
@@ -215,12 +237,20 @@ func LoginByEmailHandler(cc echo.Context) error {
 
 	mod, err := model.GetUsrByName(req.Name)
 	if err != nil {
-		return c.BYResponse(http.StatusBadRequest, "database error", err.Error())
+		if errors.Is(err, model.DBInternalError) {
+			return c.BYResponse(http.StatusInternalServerError, "", err.Error())
+		} else {
+			return c.BYResponse(http.StatusBadRequest, "", err.Error())
+		}
 	}
 	email := mod.Email
 
 	las, err := model.GetEmailLastSendTime(email)
-	if err == nil && las != nil {
+	if err != nil {
+		// assert(errors.Is(err, model.RedisInternalError))
+		return c.BYResponse(http.StatusInternalServerError, "", err.Error())
+	}
+	if las != nil {
 		timestamp, err := strconv.ParseInt(las.(string), 10, 64)
 		if err != nil {
 			return c.BYResponse(http.StatusInternalServerError, "ParseInt failed", err.Error())
@@ -237,6 +267,7 @@ func LoginByEmailHandler(cc echo.Context) error {
 	}
 	err = model.UpdateCodeSendRecord(email, code, req.Name)
 	if err != nil {
+		// assert(errors.Is(err, model.RedisInternalError))
 		return c.BYResponse(http.StatusInternalServerError, "update verification code failed", err.Error())
 	}
 	return c.BYResponse(http.StatusOK, "verification code has been sent to " + email, nil)
@@ -254,7 +285,11 @@ func LoginByCodeHandler(cc echo.Context) error {
 
 	user, err := model.VerifyUsrByCode(req.Code)
 	if err != nil {
-		return c.BYResponse(http.StatusBadRequest, "database error", err.Error())
+		if errors.Is(err, model.RedisInternalError) {
+			return c.BYResponse(http.StatusInternalServerError, "", err.Error())
+		} else {
+			return c.BYResponse(http.StatusBadRequest, "", err.Error())
+		}
 	}
 
 	token, expireAt, err := auth.GenerateToken(user)

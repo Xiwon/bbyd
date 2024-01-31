@@ -8,11 +8,19 @@ import (
 
 	"bbyd/internal/shared/config"
 	"bbyd/internal/controllers/auth"
-	"bbyd/pkg/utils/logs"
+	// "bbyd/pkg/utils/logs"
 
-	"go.uber.org/zap"
+	// "go.uber.org/zap"
 	"gorm.io/gorm"
 	"github.com/garyburd/redigo/redis"
+)
+
+var (
+	DBInternalError = errors.New("Database Internal Error")
+	DBExistError    = errors.New("Database Exist Error")
+	DBNotFoundError = errors.New("Database Not Found")
+	RedisInternalError = errors.New("Redis Internal Error")
+	RedisNotFoundError = errors.New("Redis Not Found")
 )
 
 var db *gorm.DB           // postgresql
@@ -36,20 +44,26 @@ func AutoMigrate(d config.Database) error {
 	if d.PreRegisterRoot {
 		err := TryRegister(config.Configs.Constants.RootName, config.Configs.Constants.RootDefaultPasswd, "")
 		if err != nil {
-			logs.Warn("root register failed", zap.Error(err))
+			fmt.Println("root register failed")
 		}
 		_, err = TryChangeInfo(config.Configs.Constants.RootName, "", "", config.Configs.Constants.AdminAuthname)
 		if err != nil {
-			logs.Warn("root auth change failed", zap.Error(err))
+			fmt.Println("root auth change failed")
 		}
 	}
 
 	var usrdatas []UserModel
 	err = db.Find(&usrdatas).Error
 	if err != nil {
-		return err
+		return DBInternalError
 	}
-	fmt.Println("database status:\n", usrdatas)
+	fmt.Println("[database status]:")
+	for _, v := range usrdatas {
+		// fmt.Println(v.Username, v.Secret, v.Email, v.Auth)
+		fmt.Printf("{ Username:%s, Email:%s, Auth:%s }\n", 
+			v.Username, v.Email, v.Auth)
+	}
+
 	return nil
 }
 
@@ -58,11 +72,12 @@ func GetUsrByName(name string) (UserModel, error) {
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
 	if result.Error != nil {
-		return UserModel{}, result.Error
+		if result.Error == gorm.ErrRecordNotFound {
+			return UserModel{}, DBNotFoundError
+		}
+		return UserModel{}, DBInternalError
 	}
-	if result.RowsAffected == 0 {
-		return UserModel{}, errors.New("not found")
-	}
+
 	return user, nil
 }
 
@@ -71,11 +86,12 @@ func GetSecretByName(name string) (string, error) {
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
 	if result.Error != nil {
-		return "", result.Error
+		if result.Error == gorm.ErrRecordNotFound {
+			return UserModel{}, DBNotFoundError
+		}
+		return UserModel{}, DBInternalError
 	}
-	if result.RowsAffected == 0 {
-		return "", errors.New("not found")
-	}
+	
 	return user.Secret, nil
 }
 
@@ -84,10 +100,10 @@ func TryRegister(name string, passwd string, email string) error {
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
 	if result.Error != nil {
-		return result.Error
+		return DBInternalError
 	}
 	if result.RowsAffected > 0 {
-		return errors.New("exist user")
+		return DBExistError
 	}
 	user = UserModel{
 		Username: name,
@@ -95,7 +111,11 @@ func TryRegister(name string, passwd string, email string) error {
 		Email:    email,
 		Auth:     config.Configs.Constants.DefaultAuthname,
 	}
-	return db.Create(&user).Error
+	err := db.Create(&user).Error
+	if err != nil {
+		return DBInternalError
+	}
+	return nil
 }
 
 // msg, err := TryChangeInfo(req.Name, req.Passwd, req.Email)
@@ -103,11 +123,10 @@ func TryChangeInfo(name string, passwd string, email string, authoriz string) (s
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
 	if result.Error != nil {
-		return "", result.Error
+		return "", DBInternalError
 	}
 	if result.RowsAffected == 0 {
-		return "user " + name + " not found",
-			errors.New("user not found")
+		return "user " + name + " not found", DBNotFoundError
 	}
 
 	var msg string
@@ -128,7 +147,7 @@ func TryChangeInfo(name string, passwd string, email string, authoriz string) (s
 	} else {
 		err := db.Save(&user).Error
 		if err != nil {
-			return "", err
+			return "", DBInternalError
 		}
 	}
 
@@ -140,38 +159,40 @@ func TryDelete(name string) (string, error) {
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
 	if result.Error != nil {
-		return "", result.Error
+		return "", DBInternalError
 	}
 	if result.RowsAffected == 0 {
-		return "user " + name + " not found",
-			errors.New("user not found")
+		return "user " + name + " not found", DBNotFoundError
 	}
 	err := db.Delete(&user).Error
 	if err != nil {
-		return "", err
+		return "", DBInternalError
 	}
 	return "delete user " + name, nil
 }
 
 func GetEmailLastSendTime(email string) (interface{}, error) {
 	las, err := redisConn.Do("get", "emailLastSendTime:" + email)
-	return las, err
+	if err != nil {
+		return "", RedisInternalError
+	}
+	return las, nil
 }
 
 func UpdateCodeSendRecord(email string, code string, name string) error {
 	_, err := redisConn.Do("set", "emailLastSendTime:" + email, fmt.Sprintf("%d", time.Now().Unix()))
 	if err != nil {
-		return err
+		return RedisInternalError
 	}
 
 	_, err = redisConn.Do("set", "codeUser:" + code, name)
 	if err != nil {
-		return err
+		return RedisInternalError
 	}
 
 	_, err = redisConn.Do("set", "codeSendTime:" + code, fmt.Sprintf("%d", time.Now().Unix()))
 	if err != nil {
-		return err
+		return RedisInternalError
 	}
 
 	return nil
@@ -180,15 +201,15 @@ func UpdateCodeSendRecord(email string, code string, name string) error {
 func VerifyUsrByCode(code string) (string, error) {
 	user, err := redisConn.Do("get", "codeUser:" + code)
 	if err != nil {
-		return "", errors.New("redis get error")
+		return "", RedisInternalError
 	}
 	if user == nil { // not found
-		return "", errors.New("invalid verification code")
+		return "", RedisNotFoundError
 	}
 
 	sendTime, err := redisConn.Do("get", "codeSendTime:" + code)
 	if err != nil {
-		return "", errors.New("redis get error")
+		return "", RedisInternalError
 	}
 	// assert sendTime != nil
 	timeStamp, err := strconv.ParseInt(sendTime.(string), 10, 64)
@@ -200,11 +221,11 @@ func VerifyUsrByCode(code string) (string, error) {
 
 	_, err = redisConn.Do("del", "codeUser:" + code, "codeSendTime:" + code)
 	if err != nil {
-		return "", errors.New("redis del error")
+		return "", RedisInternalError
 	}
 
 	if (expired) {
-		return "", errors.New("invalid verification code")
+		return "", RedisNotFoundError
 	}
 
 	return user.(string), nil
