@@ -20,6 +20,7 @@ var (
 	DBExistError    = errors.New("Database Exist Error")
 	DBNotFoundError = errors.New("Database Not Found")
 	RedisInternalError = errors.New("Redis Internal Error")
+	RedisExistError = errors.New("Redis Exist Error")
 	RedisNotFoundError = errors.New("Redis Not Found")
 )
 
@@ -35,7 +36,11 @@ type UserModel struct {
 }
 
 func AutoMigrate(d config.Database) error {
-	err := db.AutoMigrate(&UserModel{})
+	err := db.AutoMigrate(
+		&UserModel{},
+		&NodeModel{},
+		&PostModel{},
+	)
 	if err != nil {
 		return err
 	}
@@ -57,9 +62,8 @@ func AutoMigrate(d config.Database) error {
 	if err != nil {
 		return DBInternalError
 	}
-	fmt.Println("[database status]:")
+	fmt.Println("[TABLE user_models]:")
 	for _, v := range usrdatas {
-		// fmt.Println(v.Username, v.Secret, v.Email, v.Auth)
 		fmt.Printf("{ Username:%s, Email:%s, Auth:%s }\n", 
 			v.Username, v.Email, v.Auth)
 	}
@@ -87,9 +91,9 @@ func GetSecretByName(name string) (string, error) {
 	result := db.First(&user, "username = ?", name)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
-			return UserModel{}, DBNotFoundError
+			return "", DBNotFoundError
 		}
-		return UserModel{}, DBInternalError
+		return "", DBInternalError
 	}
 	
 	return user.Secret, nil
@@ -99,7 +103,7 @@ func GetSecretByName(name string) (string, error) {
 func TryRegister(name string, passwd string, email string) error {
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
-	if result.Error != nil {
+	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
 		return DBInternalError
 	}
 	if result.RowsAffected > 0 {
@@ -122,10 +126,10 @@ func TryRegister(name string, passwd string, email string) error {
 func TryChangeInfo(name string, passwd string, email string, authoriz string) (string, error) {
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
-	if result.Error != nil {
+	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
 		return "", DBInternalError
 	}
-	if result.RowsAffected == 0 {
+	if result.Error == gorm.ErrRecordNotFound {
 		return "user " + name + " not found", DBNotFoundError
 	}
 
@@ -158,10 +162,10 @@ func TryChangeInfo(name string, passwd string, email string, authoriz string) (s
 func TryDelete(name string) (string, error) {
 	var user UserModel
 	result := db.First(&user, "username = ?", name)
-	if result.Error != nil {
+	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
 		return "", DBInternalError
 	}
-	if result.RowsAffected == 0 {
+	if result.Error == gorm.ErrRecordNotFound {
 		return "user " + name + " not found", DBNotFoundError
 	}
 	err := db.Delete(&user).Error

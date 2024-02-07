@@ -31,3 +31,27 @@ func TokenVerify(next echo.HandlerFunc) echo.HandlerFunc {
 		return next(c)
 	}
 }
+
+// if access with token - verify token
+// if not               - skip and access unauthorized
+func CanHaveToken(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(cc echo.Context) error {
+		c := cc.(*resp.ResponseContext)
+		claims, err := auth.GetClaimsFromHeader(c)
+		if err != nil {
+			// access without authorization
+			c.Set("token_usr", new(contro.UserProfile))
+			return next(c)
+		}
+
+		mod, err := model.GetUsrByName(claims.Username) // get raw data from database
+		if err != nil {
+			return c.BYResponse(http.StatusBadRequest, "database error", err.Error())
+		}
+		usr := contro.UserModelToUserProfile(mod)
+		c.Set("token_usr", &usr)
+		// set `token_usr` to contro.UserProfile object
+
+		return next(c)
+	}
+}

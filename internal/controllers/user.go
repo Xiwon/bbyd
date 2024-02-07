@@ -1,9 +1,9 @@
 package controllers
 
 import (
-	"time"
+	// "time"
 	"errors"
-	"strconv"
+	// "strconv"
 	"net/http"
 
 	"bbyd/internal/controllers/auth"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/go-playground/validator/v10"
+	"github.com/dgrijalva/jwt-go"
 )
 
 type UserProfile struct {
@@ -97,7 +98,7 @@ func RegisterHandler(cc echo.Context) error {
 	req := new(registerRqst)
 	err := c.Bind(req)
 	if err != nil {
-		return err
+		return c.BYResponse(http.StatusBadRequest, "", err.Error())
 	}
 
 	err = validate.Struct(req)
@@ -125,7 +126,7 @@ func SetinfoHandler(cc echo.Context) error {
 	name := c.Param("name")
 	err := c.Bind(req)
 	if err != nil {
-		return err
+		return c.BYResponse(http.StatusBadRequest, "", err.Error())
 	}
 	usr := GetProfile(c)
 	if req.Passwd != "" || req.Repeat != "" || req.Email != "" {
@@ -191,7 +192,7 @@ func LoginHandler(cc echo.Context) error {
 	req := new(loginRqst)
 	err := c.Bind(req)
 	if err != nil {
-		return err
+		return c.BYResponse(http.StatusBadRequest, "", err.Error())
 	}
 
 	legal := false
@@ -225,17 +226,13 @@ func LoginHandler(cc echo.Context) error {
 	})
 }
 
-// GET /user/token/email
+// POST /user/token/email/:name
 // unauthorized
-func LoginByEmailHandler(cc echo.Context) error {
+func LoginEmailSendHandler(cc echo.Context) error {
 	c := cc.(*resp.ResponseContext)
-	req := new(loginByEmailRqst)
-	err := c.Bind(req)
-	if err != nil {
-		return err
-	}
+	name := c.Param("name")
 
-	mod, err := model.GetUsrByName(req.Name)
+	mod, err := model.GetUsrByName(name)
 	if err != nil {
 		if errors.Is(err, model.DBInternalError) {
 			return c.BYResponse(http.StatusInternalServerError, "", err.Error())
@@ -245,58 +242,43 @@ func LoginByEmailHandler(cc echo.Context) error {
 	}
 	email := mod.Email
 
-	las, err := model.GetEmailLastSendTime(email)
-	if err != nil {
-		// assert(errors.Is(err, model.RedisInternalError))
-		return c.BYResponse(http.StatusInternalServerError, "", err.Error())
-	}
-	if las != nil {
-		timestamp, err := strconv.ParseInt(las.(string), 10, 64)
-		if err != nil {
-			return c.BYResponse(http.StatusInternalServerError, "ParseInt failed", err.Error())
-		}
-		if time.Now().Unix() - timestamp < 60 {
-			return c.BYResponse(http.StatusBadRequest, "too frequent requests", nil)
-		}
-	}
+	err = auth.LoginEmailSend(name, email)
 
-	code := auth.GenerateVerificationCode()
-	err = auth.SendVerificationCodeEmail(email, code, req.Name)
 	if err != nil {
-		return c.BYResponse(http.StatusInternalServerError, "send verification email failed", err.Error())
+		return c.BYResponse(http.StatusInternalServerError, "", err)
 	}
-	err = model.UpdateCodeSendRecord(email, code, req.Name)
-	if err != nil {
-		// assert(errors.Is(err, model.RedisInternalError))
-		return c.BYResponse(http.StatusInternalServerError, "update verification code failed", err.Error())
-	}
-	return c.BYResponse(http.StatusOK, "verification code has been sent to " + email, nil)
+	return c.BYResponse(http.StatusOK, "a login email has been sent to " + email, nil)
 }
 
-// GET /user/token/vcode
-// unauthorized
-func LoginByCodeHandler(cc echo.Context) error {
+// GET /user/token/email/:code
+func CodeLoginHandler(cc echo.Context) error {
 	c := cc.(*resp.ResponseContext)
-	req := new(loginByCodeRqst)
-	err := c.Bind(req)
-	if err != nil {
-		return err
-	}
+	code := c.Param("code")
 
-	user, err := model.VerifyUsrByCode(req.Code)
+	claims := auth.Claims{} // parse verification code (jwt token piece)
+	_, err := jwt.ParseWithClaims(code, &claims,
+		func(token *jwt.Token) (interface{}, error) {
+			return auth.GetSkey(), nil
+		})
 	if err != nil {
-		if errors.Is(err, model.RedisInternalError) {
+		return c.BYResponse(http.StatusBadRequest, "", err)
+	}
+	name := claims.Username
+
+	_, err = model.GetUsrByName(name) // check username validation
+	if err != nil {
+		if errors.Is(err, model.DBInternalError) {
 			return c.BYResponse(http.StatusInternalServerError, "", err.Error())
 		} else {
 			return c.BYResponse(http.StatusBadRequest, "", err.Error())
 		}
 	}
-
-	token, expireAt, err := auth.GenerateToken(user)
+	
+	token, expireAt, err := auth.GenerateToken(name)
 	if err != nil {
-		return c.BYResponse(http.StatusInternalServerError, err.Error(), nil)
+		return c.BYResponse(http.StatusInternalServerError, "", err)
 	}
-	return c.BYResponse(http.StatusOK, "login user "+user, loginResp{
+	return c.BYResponse(http.StatusOK, "login user "+name, loginResp{
 		Token:                 token,
 		Token_expiration_time: expireAt,
 	})

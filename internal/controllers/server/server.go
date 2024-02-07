@@ -33,15 +33,34 @@ func routes(e *echo.Echo) {
 	{
 		user := api.Group("/user")
 		{
-			user.GET("/:name", contro.UserIndexHandler, mdware.TokenVerify) // user index
-			user.POST("", contro.RegisterHandler)                           // register
-			user.PUT("/:name", contro.SetinfoHandler, mdware.TokenVerify)   // change user info
-			user.DELETE("/:name", contro.DeleteHandler, mdware.TokenVerify) // delete
+			user.GET("/p/:name", contro.UserIndexHandler, mdware.TokenVerify) // user index view
+			user.POST("/p", contro.RegisterHandler)                           // user register
+			user.PUT("/p/:name", contro.SetinfoHandler, mdware.TokenVerify)   // change user info
+			user.DELETE("/p/:name", contro.DeleteHandler, mdware.TokenVerify) // delete user
 
 			user.GET("/token", contro.LoginHandler)                         // login
-			user.GET("/token/email", contro.LoginByEmailHandler)            // email verify request
-			user.GET("/token/vcode", contro.LoginByCodeHandler)             // write verification code to login 
+			user.POST("/token/email/:name", contro.LoginEmailSendHandler)   // login email send
+			user.GET("/token/email/:code", contro.CodeLoginHandler)         // login by email code
 			user.DELETE("/token", contro.LogoutHandler, mdware.TokenVerify) // logout
+
+			// user.GET("/post", contro.UserPostViewHandler, mdware.TokenVerify)  // view one's posts
+		}
+
+		node := api.Group("/node")
+		{
+			node.GET("", contro.NodeIndexHandler, mdware.CanHaveToken)            // view all the nodes
+			node.POST("", contro.CreateNodeHandler, mdware.TokenVerify)           // create a new node, admin only
+			node.PUT("/:nodeid", contro.UpdateNodeHandler, mdware.TokenVerify)    // update node info, admin only
+			node.DELETE("/:nodeid", contro.DeleteNodeHandler, mdware.TokenVerify) // delete a node, admin only
+			node.GET("/:nodeid", contro.ForumIndexHandler, mdware.CanHaveToken)   // view all the posts in a node
+		}
+
+		post := api.Group("/post")
+		{
+			post.GET("/:postid", contro.PostViewHandler, mdware.CanHaveToken)     // view certain post
+			post.POST("", contro.CreatePostHandler, mdware.TokenVerify)           // create a new post
+			post.PUT("/:postid", contro.UpdatePostHandler, mdware.TokenVerify)    // update a post
+			post.DELETE("/:postid", contro.DeletePostHandler, mdware.TokenVerify) // delete a post
 		}
 	}
 }

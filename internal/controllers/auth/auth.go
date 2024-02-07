@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"net/smtp"
+	// "net/smtp"
 	"crypto/md5"
 	"crypto/rand"
 	"crypto/sha256"
@@ -10,14 +10,14 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"strconv"
+	// "strconv"
 	mathRand "math/rand"
 
 	"bbyd/internal/shared/config"
 	"bbyd/pkg/utils/response"
 
 	"github.com/dgrijalva/jwt-go"
-	goEmail "github.com/jordan-wright/email" 
+	"github.com/gophish/gomail"
 )
 
 type Claims struct {
@@ -35,7 +35,7 @@ func Init(a config.Authorization) error {
 	return nil
 }
 
-func getSkey() []byte { return skey }
+func GetSkey() []byte { return skey }
 
 func GenerateToken(name string) (string, int64, error) {
 	tokenExpirationDuration := config.Configs.Constants.TokenExpirationDuration
@@ -71,7 +71,7 @@ func GetClaimsFromHeader(c *response.ResponseContext) (Claims, error) {
 	claims := Claims{}
 	_, err := jwt.ParseWithClaims(raw, &claims,
 		func(token *jwt.Token) (interface{}, error) {
-			return getSkey(), nil
+			return GetSkey(), nil
 		})
 	if err != nil {
 		return Claims{}, err
@@ -96,26 +96,31 @@ func GenerateSalt() string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
-func GenerateVerificationCode() string {
+// [deprecated]
+func GenerateRand6() string {
 	mathRand.NewSource(time.Now().Unix())
 	return fmt.Sprintf("%6d", mathRand.Intn(1000000))
 }
 
-func SendVerificationCodeEmail(to string, code string, rqstUser string) error {
+// err = auth.LoginEmailSend(name, email)
+func LoginEmailSend(name string, email string) error {
 	conf := config.Configs.SmtpConfig
 	sender, password := conf.Sender, conf.Password
 	host, port := conf.Host, conf.Port
+	m := gomail.NewMessage()
+	m.SetHeader("From", sender)
+	m.SetHeader("To", email)
+	m.SetHeader("Subject", "BBYD Email Login")
+	code, _, err := GenerateToken(name)
+	if err != nil {
+		return err
+	}
+	m.SetBody("text/html", "Please visit route /user/token/email/"+code+" to login your account")
+	d := gomail.NewDialer(host, port, sender, password)
 
-	plainAuth := smtp.PlainAuth("", sender, password, host)
-	em := goEmail.NewEmail()
-	em.From = "Bbyd System Mail"
-	em.To = []string{to}
-	em.Subject = string("Verification Code Mail")
-	em.Text = []byte(
-		"Your verification code is: " + code + "\n" +
-		"You can use this code to login user " + rqstUser + ".\n" +
-		"Please use the code quickly, which will be expired in " + 
-			strconv.Itoa(config.Configs.SmtpConfig.CodeExpirationMinute) + "minutes.")
-
-	return em.Send(host + ":" + strconv.Itoa(port), plainAuth)
+	err = d.DialAndSend(m)
+	if err != nil {
+		return err
+	}
+	return nil
 }
