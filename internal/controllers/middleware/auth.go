@@ -1,13 +1,13 @@
 package middleware
 
-import(
+import (
 	"net/http"
-	
-	"bbyd/internal/model"
-	"bbyd/internal/controllers/auth"
+
 	contro "bbyd/internal/controllers"
+	"bbyd/internal/controllers/auth"
+	"bbyd/internal/model"
 	resp "bbyd/pkg/utils/response"
-	
+
 	"github.com/labstack/echo/v4"
 )
 
@@ -26,6 +26,7 @@ func TokenVerify(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 		usr := contro.UserModelToUserProfile(mod)
 		c.Set("token_usr", &usr)
+		c.Set("raw_token", &claims.RawToken)
 		// set `token_usr` to contro.UserProfile object
 
 		return next(c)
@@ -41,6 +42,7 @@ func CanHaveToken(next echo.HandlerFunc) echo.HandlerFunc {
 		if err != nil {
 			// access without authorization
 			c.Set("token_usr", new(contro.UserProfile))
+			c.Set("raw_token", new(string))
 			return next(c)
 		}
 
@@ -50,6 +52,7 @@ func CanHaveToken(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 		usr := contro.UserModelToUserProfile(mod)
 		c.Set("token_usr", &usr)
+		c.Set("raw_token", &claims.RawToken)
 		// set `token_usr` to contro.UserProfile object
 
 		return next(c)

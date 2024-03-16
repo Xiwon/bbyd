@@ -150,3 +150,28 @@ func SetEmailVerifyCode(key, name string, ttlSeconds int) error {
 func CodeNameGet(key string) (interface{}, error) {
 	return redisConn.Do("get", key)
 }
+
+// err := model.SetExpiredToken(rawToken)
+func SetExpiredToken(tokenKey, name string) error {
+	_, err := redisConn.Do("set", tokenKey, name)
+	if err != nil {
+		return err
+	}
+	_, err = redisConn.Do("expire", tokenKey, config.Configs.Constants.TokenExpirationMinute*60)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CheckDeprecatedToken(key string) bool {
+	res, err := redisConn.Do("exists", key)
+	if err != nil {
+		return true // login not allowed when internal error occurred
+	}
+	if res.(int64) == 0 {
+		return false
+	}
+	return true
+}

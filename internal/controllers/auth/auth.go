@@ -18,6 +18,7 @@ import (
 
 type Claims struct {
 	Username string `json:"username"`
+	RawToken string `json:"rawtoken"`
 	jwt.StandardClaims
 }
 
@@ -64,6 +65,11 @@ func GetClaimsFromHeader(c *response.ResponseContext) (Claims, error) {
 	}
 
 	raw := bearer[1]
+
+	if model.CheckDeprecatedToken(SuffixExpiredToken+raw) == true { // this token is invalid
+		return Claims{}, errors.New("invalid token")
+	}
+
 	claims := Claims{}
 	_, err := jwt.ParseWithClaims(raw, &claims,
 		func(token *jwt.Token) (interface{}, error) {
@@ -72,6 +78,7 @@ func GetClaimsFromHeader(c *response.ResponseContext) (Claims, error) {
 	if err != nil {
 		return Claims{}, err
 	}
+	claims.RawToken = raw
 	return claims, nil
 }
 
@@ -129,4 +136,11 @@ func CodeNameGet(code string) (string, error) {
 		return "", model.RedisNotFoundError
 	}
 	return string(res.([]uint8)), nil
+}
+
+const SuffixExpiredToken string = "expiredToken:"
+
+// err := auth.LogoutToken(rawToken)
+func LogoutToken(rawToken, name string) error {
+	return model.SetExpiredToken(SuffixExpiredToken+rawToken, name)
 }

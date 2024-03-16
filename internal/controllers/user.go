@@ -55,7 +55,9 @@ type loginResp struct {
 type loginByCodeRqst struct {
 	Code string `json:"code" form:"code" query:"code"`
 }
-type logoutResp loginResp
+type logoutResp struct {
+	ExpiredToken string `json:"expired_token"`
+}
 
 func UserModelToUserProfile(usr model.UserModel) UserProfile {
 	return UserProfile{
@@ -72,6 +74,11 @@ func UserModelToUserProfile(usr model.UserModel) UserProfile {
 func GetProfile(c echo.Context) UserProfile {
 	usr := c.Get("token_usr")
 	return *usr.(*UserProfile)
+}
+
+func GetRawToken(c echo.Context) string {
+	raw := c.Get("raw_token")
+	return *raw.(*string)
 }
 
 // GET /user/:name
@@ -297,10 +304,14 @@ func CodeLoginHandler(cc echo.Context) error {
 func LogoutHandler(cc echo.Context) error {
 	c := cc.(*resp.ResponseContext)
 	usr := GetProfile(c)
-	// fake logout
-	return c.BYResponse(http.StatusOK, "logout from user "+usr.Username, logoutResp{
-		Token:                 "",
-		Token_expiration_time: 0,
+	rawToken := GetRawToken(c)
+
+	err := auth.LogoutToken(rawToken, usr.Username)
+	if err != nil {
+		return c.BYResponse(http.StatusInternalServerError, "", err)
+	}
+
+	return c.BYResponse(http.StatusOK, "logout from user <"+usr.Username+">", logoutResp{
+		ExpiredToken: rawToken,
 	})
-	// @todo: create token blacklist to immediately dispose invalid tokens
 }
