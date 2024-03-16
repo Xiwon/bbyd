@@ -8,6 +8,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/garyburd/redigo v1.6.4
 	github.com/go-playground/validator/v10 v10.16.0
+	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/gophish/gomail v0.0.0-20200818021916-1f6d0dfd512e
 	github.com/labstack/echo/v4 v4.11.2
 	go.uber.org/zap v1.26.0

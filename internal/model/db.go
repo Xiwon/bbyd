@@ -1,10 +1,10 @@
 package model
 
 import (
-	"time"
+	// "time"
 	"errors"
 	"fmt"
-	"strconv"
+	// "strconv"
 
 	"bbyd/internal/shared/config"
 	// "bbyd/internal/controllers/auth"
@@ -12,7 +12,7 @@ import (
 
 	// "go.uber.org/zap"
 	"gorm.io/gorm"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 )
 
 var (
@@ -61,37 +61,4 @@ func AutoMigrate(d config.Database) error {
 	}
 
 	return nil
-}
-
-func VerifyUsrByCode(code string) (string, error) {
-	user, err := redisConn.Do("get", "codeUser:" + code)
-	if err != nil {
-		return "", RedisInternalError
-	}
-	if user == nil { // not found
-		return "", RedisNotFoundError
-	}
-
-	sendTime, err := redisConn.Do("get", "codeSendTime:" + code)
-	if err != nil {
-		return "", RedisInternalError
-	}
-	// assert sendTime != nil
-	timeStamp, err := strconv.ParseInt(sendTime.(string), 10, 64)
-	expired := false
-	if time.Now().Unix() - timeStamp > 
-		60 * int64(config.Configs.SmtpConfig.CodeExpirationMinute) { // verification code expired 
-		expired = true
-	}
-
-	_, err = redisConn.Do("del", "codeUser:" + code, "codeSendTime:" + code)
-	if err != nil {
-		return "", RedisInternalError
-	}
-
-	if (expired) {
-		return "", RedisNotFoundError
-	}
-
-	return user.(string), nil
 }

@@ -1,19 +1,15 @@
 package auth
 
 import (
-	// "net/smtp"
-	"crypto/md5"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"errors"
-	"fmt"
+
+	"strconv"
 	"strings"
 	"time"
-	// "strconv"
-	mathRand "math/rand"
 
+	"bbyd/internal/model"
 	"bbyd/internal/shared/config"
+	"bbyd/internal/shared/generator"
 	"bbyd/pkg/utils/response"
 
 	"github.com/dgrijalva/jwt-go"
@@ -79,28 +75,7 @@ func GetClaimsFromHeader(c *response.ResponseContext) (Claims, error) {
 	return claims, nil
 }
 
-// salt := auth.GetSaltFromSecret(db_sec)
-func GetSaltFromSecret(s string) string { return s[:strings.Index(s, "$")] }
-
-// sec := auth.GenerateSecret(req.Passwd, salt)
-func GenerateSecret(passwd string, salt string) string {
-	sha := fmt.Sprintf("%x", sha256.Sum256([]byte(passwd)))
-	return salt + "$" +
-		fmt.Sprintf("%x", md5.Sum([]byte(sha+salt)))
-}
-
-// salt := auth.GenerateSalt()
-func GenerateSalt() string {
-	b := make([]byte, 32)
-	rand.Read(b)
-	return base64.URLEncoding.EncodeToString(b)
-}
-
-// [deprecated]
-func GenerateRand6() string {
-	mathRand.NewSource(time.Now().Unix())
-	return fmt.Sprintf("%6d", mathRand.Intn(1000000))
-}
+const SuffixEmailVerifyCode string = "emailVerifyCode:"
 
 // err = auth.LoginEmailSend(name, email)
 func LoginEmailSend(name string, email string) error {
@@ -110,12 +85,31 @@ func LoginEmailSend(name string, email string) error {
 	m := gomail.NewMessage()
 	m.SetHeader("From", sender)
 	m.SetHeader("To", email)
-	m.SetHeader("Subject", "BBYD Email Login")
-	code, _, err := GenerateToken(name)
-	if err != nil {
-		return err
+	m.SetHeader("Subject", "BBYD Verification Code")
+
+	var code string
+	var err error
+	for i := 1; i <= 10; i++ { // retry for 10 times
+		code, err = generator.GenerateEmailVerifyCode()
+		key := SuffixEmailVerifyCode + code
+		if err != nil {
+			return err
+		}
+
+		err = model.SetEmailVerifyCode(key, name, conf.CodeExpirationMinute*60)
+		if err == nil {
+			break
+		}
 	}
-	m.SetBody("text/html", "Please visit route /user/token/email/"+code+" to login your account")
+	if code == "" {
+		return errors.New("cannot generate verification code")
+	}
+
+	m.SetBody("text/html",
+		"You are trying to login user <"+name+"> by email verification.</br>"+
+			"Here is your code:</br>"+
+			`<font color="blueviolet" size="18px">`+code+"</font></br>"+
+			"The code is valid for "+strconv.Itoa(conf.CodeExpirationMinute)+" minutes.")
 	d := gomail.NewDialer(host, port, sender, password)
 
 	err = d.DialAndSend(m)
@@ -123,4 +117,16 @@ func LoginEmailSend(name string, email string) error {
 		return err
 	}
 	return nil
+}
+
+// name, err := auth.CodeNameGet(code)
+func CodeNameGet(code string) (string, error) {
+	res, err := model.CodeNameGet(SuffixEmailVerifyCode + code)
+	if err != nil {
+		return "", model.RedisInternalError
+	}
+	if res == nil {
+		return "", model.RedisNotFoundError
+	}
+	return string(res.([]uint8)), nil
 }

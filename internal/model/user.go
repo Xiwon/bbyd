@@ -2,12 +2,14 @@ package model
 
 import (
 	"bbyd/internal/shared/config"
-	"bbyd/internal/controllers/auth"
+	"bbyd/internal/shared/generator"
+
+	// "bbyd/internal/controllers/auth"
 	// "bbyd/pkg/utils/logs"
 
 	// "go.uber.org/zap"
 	"gorm.io/gorm"
-	// "github.com/garyburd/redigo/redis"
+	// "github.com/gomodule/redigo/redis"
 )
 
 type UserModel struct {
@@ -42,7 +44,7 @@ func GetSecretByName(name string) (string, error) {
 		}
 		return "", DBInternalError
 	}
-	
+
 	return user.Secret, nil
 }
 
@@ -59,7 +61,7 @@ func TryChangeInfo(name string, passwd string, email string, authoriz string) (s
 
 	var msg string
 	if passwd != "" {
-		user.Secret = auth.GenerateSecret(passwd, auth.GenerateSalt())
+		user.Secret = generator.GenerateSecret(passwd, generator.GenerateSalt())
 		msg += " passwd changed"
 	}
 	if email != "" {
@@ -111,7 +113,7 @@ func TryRegister(name string, passwd string, email string) error {
 	}
 	user = UserModel{
 		Username: name,
-		Secret:   auth.GenerateSecret(passwd, auth.GenerateSalt()),
+		Secret:   generator.GenerateSecret(passwd, generator.GenerateSalt()),
 		Email:    email,
 		Auth:     config.Configs.Constants.DefaultAuthname,
 	}
@@ -120,4 +122,31 @@ func TryRegister(name string, passwd string, email string) error {
 		return DBInternalError
 	}
 	return nil
+}
+
+// err = model.SetEmailVerifyCode(key, name, conf.CodeExpirationMinute * 60)
+func SetEmailVerifyCode(key, name string, ttlSeconds int) error {
+	res, err := redisConn.Do("exists", key)
+	if err != nil {
+		return err
+	}
+	if res.(int64) != 0 {
+		return RedisExistError
+	}
+
+	_, err = redisConn.Do("set", key, name)
+	if err != nil {
+		return err
+	}
+	_, err = redisConn.Do("expire", key, ttlSeconds)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// res, err := model.CodeNameGet(code)
+func CodeNameGet(key string) (interface{}, error) {
+	return redisConn.Do("get", key)
 }

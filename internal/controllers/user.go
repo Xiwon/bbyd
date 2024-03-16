@@ -1,19 +1,21 @@
 package controllers
 
 import (
+
 	// "time"
 	"errors"
+
 	// "strconv"
 	"net/http"
 
 	"bbyd/internal/controllers/auth"
 	"bbyd/internal/model"
 	"bbyd/internal/shared/config"
+	"bbyd/internal/shared/generator"
 	resp "bbyd/pkg/utils/response"
 
-	"github.com/labstack/echo/v4"
 	"github.com/go-playground/validator/v10"
-	"github.com/dgrijalva/jwt-go"
+	"github.com/labstack/echo/v4"
 )
 
 type UserProfile struct {
@@ -22,6 +24,7 @@ type UserProfile struct {
 	Email    string
 	Auth     string
 }
+
 var validate *validator.Validate = validator.New()
 
 type loginRqst struct {
@@ -45,9 +48,10 @@ type loginResp struct {
 	Token                 string `json:"token"`
 	Token_expiration_time int64  `json:"token_expiration_time"`
 }
-type loginByEmailRqst struct {
-	Name string `json:"name" form:"name" query:"name"`
-}
+
+//	type loginByEmailRqst struct {
+//		Name string `json:"name" form:"name" query:"name"`
+//	}
 type loginByCodeRqst struct {
 	Code string `json:"code" form:"code" query:"code"`
 }
@@ -205,8 +209,8 @@ func LoginHandler(cc echo.Context) error {
 				return c.BYResponse(http.StatusBadRequest, "", err.Error())
 			}
 		}
-		salt := auth.GetSaltFromSecret(db_sec)
-		sec := auth.GenerateSecret(req.Passwd, salt)
+		salt := generator.GetSaltFromSecret(db_sec)
+		sec := generator.GenerateSecret(req.Passwd, salt)
 		// get salt & generate secret
 		if sec == db_sec {
 			legal = true
@@ -241,29 +245,33 @@ func LoginEmailSendHandler(cc echo.Context) error {
 		}
 	}
 	email := mod.Email
-
 	err = auth.LoginEmailSend(name, email)
 
 	if err != nil {
 		return c.BYResponse(http.StatusInternalServerError, "", err)
 	}
-	return c.BYResponse(http.StatusOK, "a login email has been sent to " + email, nil)
+	return c.BYResponse(http.StatusOK, "a login email has been sent to "+email, nil)
 }
 
-// GET /user/token/email/:code
+// GET /user/token/email/
+// unauthorized
 func CodeLoginHandler(cc echo.Context) error {
 	c := cc.(*resp.ResponseContext)
-	code := c.Param("code")
-
-	claims := auth.Claims{} // parse verification code (jwt token piece)
-	_, err := jwt.ParseWithClaims(code, &claims,
-		func(token *jwt.Token) (interface{}, error) {
-			return auth.GetSkey(), nil
-		})
+	req := new(loginByCodeRqst)
+	err := c.Bind(req)
 	if err != nil {
-		return c.BYResponse(http.StatusBadRequest, "", err)
+		return c.BYResponse(http.StatusBadRequest, "", err.Error())
 	}
-	name := claims.Username
+	code := req.Code
+
+	name, err := auth.CodeNameGet(code)
+	if err != nil {
+		if errors.Is(err, model.RedisInternalError) {
+			return c.BYResponse(http.StatusInternalServerError, "", err.Error())
+		} else {
+			return c.BYResponse(http.StatusBadRequest, "", err.Error())
+		}
+	}
 
 	_, err = model.GetUsrByName(name) // check username validation
 	if err != nil {
@@ -273,7 +281,7 @@ func CodeLoginHandler(cc echo.Context) error {
 			return c.BYResponse(http.StatusBadRequest, "", err.Error())
 		}
 	}
-	
+
 	token, expireAt, err := auth.GenerateToken(name)
 	if err != nil {
 		return c.BYResponse(http.StatusInternalServerError, "", err)

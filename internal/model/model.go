@@ -9,7 +9,7 @@ import(
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"go.uber.org/zap"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 )
 
 func Init(d config.Database, r config.RedisConfig) error {

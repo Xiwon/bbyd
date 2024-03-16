@@ -40,7 +40,7 @@ func routes(e *echo.Echo) {
 
 			user.GET("/token", contro.LoginHandler)                         // login
 			user.POST("/token/email/:name", contro.LoginEmailSendHandler)   // login email send
-			user.GET("/token/email/:code", contro.CodeLoginHandler)         // login by email code
+			user.GET("/token/email/", contro.CodeLoginHandler)              // login by email code
 			user.DELETE("/token", contro.LogoutHandler, mdware.TokenVerify) // logout
 
 			// user.GET("/post", contro.UserPostViewHandler, mdware.TokenVerify)  // view one's posts

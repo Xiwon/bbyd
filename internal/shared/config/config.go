@@ -1,9 +1,10 @@
 package config
 
 import (
+	"time"
+
 	"github.com/BurntSushi/toml"
 	"github.com/go-playground/validator/v10"
-	"time"
 )
 
 var Configs *Config = &Config{}
@@ -44,12 +45,13 @@ type Constants struct {
 }
 
 type SmtpConfig struct {
-	Sender                 string `toml:"sender"    validate:"required"`
-	Password               string `toml:"password"  validate:"required"`
-	Host                   string `toml:"host"      validate:"required"`
-	Port                   int    `toml:"port"      validate:"gte=0,lt=65536"`
+	Sender                 string `toml:"sender"      validate:"required"`
+	Password               string `toml:"password"    validate:"required"`
+	Host                   string `toml:"host"        validate:"required"`
+	Port                   int    `toml:"port"        validate:"gte=0,lt=65536"`
 	CodeExpirationMinute   int    `toml:"code_expiration_minute"`
 	CodeExpirationDuration time.Duration
+	CodeLength             int `toml:"code_length" validate:"required,gte=0,lte=20"`
 }
 
 type Config struct {
@@ -74,7 +76,7 @@ func Create(path string) error {
 	Configs.Constants.TokenHeaderName = "Authorization"
 
 	Configs.SmtpConfig.Port = 25
-	Configs.SmtpConfig.CodeExpirationMinute = 5
+	Configs.SmtpConfig.CodeExpirationMinute = 30
 
 	_, err := toml.DecodeFile(path, Configs)
 	if err != nil {
@@ -88,7 +90,7 @@ func Create(path string) error {
 	// after work
 	Configs.Constants.TokenExpirationDuration =
 		time.Duration(Configs.Constants.TokenExpirationMinute) * time.Minute
-	Configs.SmtpConfig.CodeExpirationDuration = 
+	Configs.SmtpConfig.CodeExpirationDuration =
 		time.Duration(Configs.SmtpConfig.CodeExpirationMinute) * time.Minute
 
 	return nil

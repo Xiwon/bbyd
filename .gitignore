@@ -2,3 +2,6 @@
 test/
 cmd/myconf.toml
 cmd/cmd
+
+# config dir
+.vscode/
